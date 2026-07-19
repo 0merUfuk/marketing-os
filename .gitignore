@@ -1,0 +1,18 @@
+# Local state and binaries
+/data/
+/bin/
+/marketing-os
+/config.yaml
+
+# Product runtime artifacts may contain private evidence or drafts
+/products/*/evidence/
+/products/*/research/
+/products/*/drafts/
+/products/*/reports/
+/products/*/approvals/
+/products/*/state/
+/products/*/.agents/*.draft.md
+
+# OS/editor files
+.DS_Store
+*.swp

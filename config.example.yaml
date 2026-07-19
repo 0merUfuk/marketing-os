@@ -1,0 +1,47 @@
+database:
+  driver: sqlite
+  path: ./data/marketing-os.db
+
+workspace:
+  products_path: ./products
+
+skills:
+  repository_path: ./.skills/marketingskills
+  lock_file: ./skills.lock.yaml
+
+llm:
+  provider: openai-compatible
+  base_url: https://api.openai.com/v1
+  api_key_env: OPENAI_API_KEY
+  model: configured-model
+  timeout_seconds: 90
+  max_retries: 2
+  max_repair_attempts: 1
+  max_input_tokens: 30000
+  max_output_tokens: 5000
+  max_cost_per_run_usd: 1.00
+  input_cost_per_million_usd: 0
+  output_cost_per_million_usd: 0
+
+github:
+  api_base_url: https://api.github.com
+  token_env: GITHUB_TOKEN
+  approval_repository: owner/marketing-approvals
+  approval_labels:
+    - marketing-approval
+  timeout_seconds: 30
+  max_retries: 2
+
+scheduler:
+  enabled: true
+  retry_delay_seconds: 30
+  max_retries: 1
+
+safety:
+  global_kill_switch: false
+  publishing_enabled: false
+  sending_enabled: false
+  spending_enabled: false
+
+logging:
+  level: info
