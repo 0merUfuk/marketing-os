@@ -14,6 +14,7 @@ import (
 
 type RunMetadata struct {
 	RepositoryCommit string
+	SkillSnapshotID  string
 	SkillVersions    map[string]string
 	ContextVersion   int
 	ModelProvider    string
@@ -191,8 +192,8 @@ func (s *Store) CompleteAwaitingApproval(ctx context.Context, completion Awaitin
 func updateRunningMetadata(ctx context.Context, tx *sql.Tx, claim WorkflowClaim, metadata RunMetadata) error {
 	skillsJSON, _ := json.Marshal(nonNilMap(metadata.SkillVersions))
 	evidenceJSON, _ := json.Marshal(nonNilStrings(metadata.EvidenceIDs))
-	result, err := tx.ExecContext(ctx, `UPDATE workflow_runs SET repository_commit=?,skill_versions_json=?,context_version=?,model_provider=?,model_name=?,evidence_ids_json=?,input_tokens=?,output_tokens=?,estimated_cost_usd=?,output_hash=? WHERE id=? AND status=? AND fencing_token=?`,
-		metadata.RepositoryCommit, string(skillsJSON), metadata.ContextVersion, metadata.ModelProvider, metadata.ModelName,
+	result, err := tx.ExecContext(ctx, `UPDATE workflow_runs SET repository_commit=?,skill_snapshot_id=?,skill_versions_json=?,context_version=?,model_provider=?,model_name=?,evidence_ids_json=?,input_tokens=?,output_tokens=?,estimated_cost_usd=?,output_hash=? WHERE id=? AND status=? AND fencing_token=?`,
+		metadata.RepositoryCommit, nullableString(metadata.SkillSnapshotID), string(skillsJSON), metadata.ContextVersion, metadata.ModelProvider, metadata.ModelName,
 		string(evidenceJSON), metadata.InputTokens, metadata.OutputTokens, metadata.EstimatedCostUSD,
 		metadata.OutputHash, claim.RunID, domain.RunRunning, claim.FencingToken)
 	if err != nil {

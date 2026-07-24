@@ -1,0 +1,69 @@
+schema_version: 1
+source_url: https://github.com/coreyhaines31/marketingskills.git
+ref: 67264763cb107d61749f418d081c56e5bcbc0209
+commit: 67264763cb107d61749f418d081c56e5bcbc0209
+repository_version: 2.8.12
+license:
+  path: LICENSE
+  sha256: b70d71e24e40fce5da8f4b6f9cd862096a048e433db7f3c8cac5e348e6d34591
+selected_skills:
+  - name: copywriting
+    version: 2.0.1
+  - name: emails
+    version: 2.0.0
+  - name: launch
+    version: 2.0.1
+  - name: product-marketing
+    version: 2.1.0
+  - name: social
+    version: 2.2.0
+inventory:
+  - path: skills/copywriting/SKILL.md
+    sha256: ecdaabca28863d1472f79ba637842fdf4ac2fd9acc92b215ab7f152e757b2a33
+  - path: skills/copywriting/evals/evals.json
+    sha256: 1cd7c27538b91d46c2b2cd007f2064922a4874ece1f2851b4bd844fe6f78a3e6
+  - path: skills/copywriting/references/copy-frameworks.md
+    sha256: f387b6ed4b510efa9f0d3c459f4898971c8b0176e8c34185040cb264eca50186
+  - path: skills/copywriting/references/natural-transitions.md
+    sha256: 4ff23f8943af2f65b072f26f1c53ce55f19cc26d7be211c11cae8e34b43e859f
+  - path: skills/emails/SKILL.md
+    sha256: 1fbd54df4c59f48408057e7db0dfb1a53c033e6a4ca5cd1927a47c51ec28d8f1
+  - path: skills/emails/evals/evals.json
+    sha256: 79cd94598ce73482055b94a1231f7c10003fc3e367da5a46ab2c529f061a48fe
+  - path: skills/emails/references/copy-guidelines.md
+    sha256: 02f08897e4aa99ecc4ec1893d61d0c26d0c5e62e09af26f175087455e9b68e01
+  - path: skills/emails/references/email-types.md
+    sha256: a5dd4f0555a7b21d2ff426948d15657825b9d16265652563f5e272d2e1879bfd
+  - path: skills/emails/references/sequence-templates.md
+    sha256: d47b12e263ad52b72ab741c490bbc98d8bf8034d61faccc50b7dbb2650a9fba0
+  - path: skills/launch/SKILL.md
+    sha256: 6d8bbd61449c48c458b20457c0b698386fe808e7063a7baadc197fc179bd94bb
+  - path: skills/launch/evals/evals.json
+    sha256: 9909f7059a4082a095a69aaf549d5e519e333ddc8f086c50cdd5b375e191797d
+  - path: skills/product-marketing/SKILL.md
+    sha256: 6dfd6bd485f62448385844cb9eceefcee0977c843d7a1c9e6077590d4e19d1ec
+  - path: skills/product-marketing/evals/evals.json
+    sha256: 0c6599b88f50ec1be91096a36ba6c5a15cf8312151394e3469e5ddb991b19afb
+  - path: skills/social/SKILL.md
+    sha256: 8cc93d9b361622cdb640e87969747b85603bed2d268e923179f8dfb4799ec8c7
+  - path: skills/social/evals/evals.json
+    sha256: 99b4a893db8dfa82484d0d6e1eaa730258576274de16999ba016f9906d07a36b
+  - path: skills/social/references/carousel-frameworks.md
+    sha256: e7d56048a38de90f1f26f3cac8880f3d263a8bdd5fc0c9460d50aef135654768
+  - path: skills/social/references/listening-sources-template.md
+    sha256: c68bc6f57b0a48c432b1ce72c9324d41a04d0e7784d0bab91afb4a6065a43e38
+  - path: skills/social/references/listening.md
+    sha256: a1049663d7ed37864bcd58e15ae5e8f03c8edcaca37d8de4f7e38896d94fbf93
+  - path: skills/social/references/platform-limits.md
+    sha256: 6ecc6b40ff82b95c48906341f7d3c58337671d4d94f624c858764f1ed5a77c3c
+  - path: skills/social/references/platforms.md
+    sha256: 3c4e1b15717a3bcd4ed0cf29dc167dac28aa88bbf01723fde53815122396090f
+  - path: skills/social/references/post-templates.md
+    sha256: febd0aca9557e6575188379f012b019b36839926bdf7924661f125f900b24d0f
+  - path: skills/social/references/reverse-engineering.md
+    sha256: c27bef59d463b3b11331c1770f4a23e9e6bbce7d7c8db1e7f7f4f14ba206243f
+  - path: skills/social/references/short-form-video.md
+    sha256: 38e7de4049f39d116b815a8d07f5e45777501e9f506e3a5fe005c5d204d32ee7
+local_modifications:
+  upstream_content: none
+  statement: No upstream content modifications; layout and provenance files were added by Marketing OS.

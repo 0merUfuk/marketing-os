@@ -50,11 +50,13 @@ Runtime evidence/draft/report/approval/state paths are ignored by the supplied `
 
 ```yaml
 skills:
-  repository_path: ./.skills/marketingskills
+  repository_path: ./third_party/marketingskills
   lock_file: ./skills.lock.yaml
 ```
 
-The repository path should point to the `coreyhaines31/marketingskills` Git submodule. The lock file records repository URL, requested ref, resolved commit, upstream version, full-manifest SHA-256, and update time. No AI operation proceeds when the commit or manifest differs.
+The repository path points to the committed vendored distribution. It contains exactly `product-marketing`, `launch`, `copywriting`, `social`, and `emails`; no Git checkout or submodule initialization is required.
+
+The lock records `distribution: vendored`, the upstream URL/ref/commit/version, the original full-upstream `upstream_manifest_sha256`, a sorted selected-skill name/version inventory, the separate runtime-integrity `vendored_manifest_sha256`, and update time. `third_party/marketingskills/UPSTREAM.yaml` and `THIRD_PARTY_NOTICES.md` preserve human-readable provenance and attribution. No AI operation proceeds when the vendored content or selected inventory differs from the lock.
 
 ## LLM
 

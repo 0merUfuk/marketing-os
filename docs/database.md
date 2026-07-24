@@ -18,7 +18,9 @@ erDiagram
   APPROVALS ||--o{ APPROVAL_HISTORY : transitions
   EVIDENCE }o--o{ GENERATED_ASSETS : cited_by
   REPOSITORY_VERSIONS ||--o{ SKILL_VERSIONS : contains
+  SKILL_SNAPSHOTS ||--o{ SKILL_SNAPSHOT_VERSIONS : contains
   SKILLS ||--o{ SKILL_VERSIONS : versions
+  SKILLS ||--o{ SKILL_SNAPSHOT_VERSIONS : versions
   WORKFLOWS ||--o{ DEDUPE_KEYS : protects
   WORKFLOWS ||--o{ CURSORS : tracks
 ```
@@ -28,13 +30,15 @@ erDiagram
 | Table | Purpose | Important invariants |
 |---|---|---|
 | `products` | Product registry and source endpoints | Stable lowercase product ID; no credentials |
-| `product_context_versions` | Immutable context drafts/approvals | Monotonic version; one approved version per product via partial unique index |
+| `product_context_versions` | Immutable context drafts/approvals | Monotonic version; one approved version per product; AI-produced drafts reference an immutable skill snapshot |
 | `evidence` | Immutable source snapshots | Product-scoped ID; content SHA-256; source/external identity |
-| `repository_versions` | Installed marketing-skills repository snapshots | Commit SHA primary key and full-manifest hash |
+| `repository_versions` | Legacy submodule-era marketing-skills audit records | Retained read-only for existing databases |
+| `skill_snapshots` | Append-only vendored runtime identities | Upstream commit/ref/full manifest plus the actual vendored manifest; distinct vendored snapshots may share an upstream commit |
 | `skills` | Current indexed skill metadata | Name primary key |
-| `skill_versions` | Skill/repository audit history | `(skill_name, version, repository_commit)` unique |
+| `skill_versions` | Legacy submodule-era skill audit history | Retained read-only for existing databases |
+| `skill_snapshot_versions` | Skill metadata for a vendored snapshot | `(snapshot_id, skill_name)` unique; conflicting metadata is rejected, never updated |
 | `workflows` | Complete deterministic definitions | Required inputs/steps/check/state/dedupe/stop/error/output/approval/cost/timeout fields |
-| `workflow_runs` | Attempt and result observability | Explicit state enum; model, tokens, cost, evidence, skill/context versions |
+| `workflow_runs` | Attempt and result observability | Explicit state enum; model, tokens, cost, evidence, immutable skill-snapshot/context versions |
 | `workflow_claims` | One active lease per product/workflow | Fencing token and lease expiration |
 | `dedupe_keys` | Event-level idempotency lifecycle | Unique `(product, workflow, dedupe_key)`; completion only on success |
 | `approvals` | Durable remote-write intent and reconciled issue | Unique run/dedupe/marker/request hash; `creating` before HTTP write |

@@ -1,6 +1,6 @@
 # Marketing OS — Absolute Beginner's Guide
 
-This guide walks you through installing, configuring, and running **Marketing OS** end to end. It is written for the first commit (`main`, `e243eee`) and covers real usage, not just theory.
+This guide walks you through installing, configuring, and running **Marketing OS** end to end. It covers real usage, not just theory.
 
 ---
 
@@ -61,7 +61,6 @@ This first version stops at `awaiting_approval`. A human must read the GitHub is
 ## Prerequisites
 
 - **Go 1.25.6 or later**.
-- **Git 2.x**.
 - A **GitHub personal access token** with at least `repo` scope.
 - An **OpenAI-compatible API key** and endpoint. Examples:
   - OpenAI: `https://api.openai.com/v1`
@@ -73,18 +72,20 @@ This first version stops at `awaiting_approval`. A human must read the GitHub is
 
 ## Installation
 
-Clone the repository **with submodules** so the pinned marketing skills are available:
+Download and extract the source archive, then enter the source directory:
 
 ```sh
-git clone --recurse-submodules https://github.com/0merUfuk/marketing-os.git
 cd marketing-os
 ```
 
-If you already cloned without submodules:
+An ordinary clone is also fine if you prefer Git:
 
 ```sh
-git submodule update --init --recursive
+git clone https://github.com/0merUfuk/marketing-os.git
+cd marketing-os
 ```
+
+Git is optional for normal users, and no submodule initialization is required. The five runtime marketing skills are already present under `third_party/marketingskills`.
 
 Build the binary:
 
@@ -104,17 +105,15 @@ Verify the pinned skills:
 ./bin/marketing-os --config ./config.example.yaml skills status
 ```
 
-Expected output:
+Confirm that the output reports:
 
-```json
-{
-  "pin_valid": true,
-  "commit_matches": true,
-  "manifest_matches": true
-}
-```
+- `distribution: vendored`;
+- upstream commit `67264763cb107d61749f418d081c56e5bcbc0209`;
+- a non-empty vendored manifest;
+- `inventory valid: true`;
+- `pin valid: true`.
 
-If `pin_valid` is `false`, you cannot run any workflow that uses the model.
+If `pin_valid` is `false`, you cannot run any workflow that uses the model. Restore the vendored tree and lock from the same trusted source package; do not initialize a submodule or fetch individual skill files.
 
 ---
 
@@ -393,6 +392,7 @@ Only a human can act on that issue.
 Useful fields:
 
 - `repository_commit` — which marketing skills version was used.
+- `skill_snapshot_id` — the immutable vendored-manifest snapshot consumed by the run.
 - `skill_versions` — versions of loaded skills.
 - `context_version` — which approved product context.
 - `input_tokens`, `output_tokens`, `estimated_cost_usd`.
@@ -457,7 +457,7 @@ This persists the kill switch in SQLite. Running scheduler jobs finish, but no n
 
 ## Updating marketing skills
 
-Marketing OS uses a pinned skills submodule. Do not edit files inside `.skills/marketingskills` directly.
+Marketing OS ships exactly five reviewed skills under `third_party/marketingskills`: `product-marketing`, `launch`, `copywriting`, `social`, and `emails`. Normal users do not update them separately from Marketing OS.
 
 ### Check status
 
@@ -465,21 +465,19 @@ Marketing OS uses a pinned skills submodule. Do not edit files inside `.skills/m
 ./bin/marketing-os skills status
 ```
 
-### Update to a new upstream commit
+### Runtime update refusal
 
 ```sh
-./bin/marketing-os skills update --ref <new-commit-or-tag>
+./bin/marketing-os skills update
 ```
 
-This:
+This command always exits non-zero:
 
-- Refuses if the skills repo has local changes.
-- Fetches the ref.
-- Checks it out detached.
-- Computes the repository manifest.
-- Atomically writes `skills.lock.yaml`.
+```text
+runtime skills update is disabled for vendored distribution; follow the reviewed offline maintainer procedure in docs/skills.md
+```
 
-After updating, review the diff, then commit the submodule and lock file. Never run workflows with an uncommitted or unmatched lock.
+It never fetches or changes skill content. Maintainers must use the isolated, review-first process in [`docs/skills.md`](docs/skills.md#maintainer-update-procedure), updating the vendored files, `UPSTREAM.yaml`, `THIRD_PARTY_NOTICES.md`, selected-skill inventory, and both manifests together.
 
 ### List loaded skills
 
@@ -499,11 +497,7 @@ Run:
 ./bin/marketing-os skills status
 ```
 
-If the commit or manifest does not match, re-run:
-
-```sh
-./bin/marketing-os skills update --ref 67264763cb107d61749f418d081c56e5bcbc0209
-```
+Check the vendored manifest and inventory fields. Restore `third_party/marketingskills` and `skills.lock.yaml` from the same trusted Marketing OS source archive or package revision. The runtime update command deliberately cannot repair or replace the distribution.
 
 ### `no approved product context`
 
@@ -589,8 +583,12 @@ marketing-os/
 │       │   └── <approval-id>.md
 │       └── drafts/
 │           └── <approval-id>.json
-├── .skills/marketingskills/      # pinned submodule
-├── skills.lock.yaml              # verified lock
+├── third_party/marketingskills/  # exact five-skill vendored distribution
+│   ├── LICENSE                   # upstream MIT license
+│   ├── UPSTREAM.yaml             # source and modification provenance
+│   └── skills/
+├── THIRD_PARTY_NOTICES.md        # repository-level attribution
+├── skills.lock.yaml              # upstream + vendored integrity lock
 ├── internal/                     # Go implementation
 ├── migrations/                   # SQLite schema
 ├── docs/                         # detailed documentation
@@ -604,7 +602,7 @@ marketing-os/
 1. **No autonomous execution.** The first version stops at `awaiting_approval`.
 2. **No publishing, sending, spending.** `safety.*_enabled` must stay `false`.
 3. **Secrets only via environment variables.** `config.yaml` stores variable names, never values.
-4. **Pinned skills.** The model only sees skills that pass manifest verification.
+4. **Pinned skills.** The model only sees the exact vendored inventory after its runtime manifest passes verification.
 5. **Evidence-grounded.** Every generated asset must cite evidence IDs from the same product.
 6. **Bounded.** Token limits, cost limits, timeouts, retry limits, redirect limits, and file-size limits are enforced.
 7. **Idempotent.** Re-running the same release produces the same dedupe key and reconciles to one GitHub issue.

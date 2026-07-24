@@ -36,11 +36,11 @@ type PromptPackage struct {
 	SkillVersions    map[string]string `json:"skill_versions"`
 }
 
-func LoadReleaseSkills(ctx context.Context, loader *skills.Loader) (ReleaseSkillSet, error) {
-	if loader == nil {
-		return ReleaseSkillSet{}, errors.New("skill loader is required")
+func LoadReleaseSkills(ctx context.Context, snapshot *skills.VerifiedSnapshot) (ReleaseSkillSet, error) {
+	if snapshot == nil {
+		return ReleaseSkillSet{}, errors.New("verified skill snapshot is required")
 	}
-	primary, err := loader.Load(ctx, "launch", nil)
+	primary, err := snapshot.Load(ctx, "launch", nil)
 	if err != nil {
 		return ReleaseSkillSet{}, err
 	}
@@ -54,7 +54,7 @@ func LoadReleaseSkills(ctx context.Context, loader *skills.Loader) (ReleaseSkill
 	}
 	set := ReleaseSkillSet{Primary: primary, Supporting: make(map[string]skills.Bundle, len(requests))}
 	for _, request := range requests {
-		bundle, err := loader.Load(ctx, request.name, request.refs)
+		bundle, err := snapshot.Load(ctx, request.name, request.refs)
 		if err != nil {
 			return ReleaseSkillSet{}, err
 		}

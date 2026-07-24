@@ -111,20 +111,22 @@ func (w *ReleaseWorkflow) Run(ctx context.Context, productID string, options Run
 	if err != nil {
 		return blocked("approved_context_required", fmt.Errorf("workflow blocked: %w", err))
 	}
-	lock, err := w.Skills.RequirePinned(ctx)
+	skillSnapshot, err := w.Skills.RequirePinned(ctx)
 	if err != nil {
 		return blocked("skills_pin_invalid", fmt.Errorf("workflow blocked by skills pin: %w", err))
 	}
-	skillSet, err := skillruntime.LoadReleaseSkills(ctx, w.Skills)
+	lock := skillSnapshot.Lock()
+	skillSet, err := skillruntime.LoadReleaseSkills(ctx, skillSnapshot)
 	if err != nil {
 		return blocked("skills_load_failed", fmt.Errorf("workflow blocked by skill loading: %w", err))
 	}
-	snapshot := []skills.Skill{skillSet.Primary.Skill}
-	for _, bundle := range skillSet.Supporting {
-		snapshot = append(snapshot, bundle.Skill)
+	indexedSkills, err := skillSnapshot.Index(ctx)
+	if err != nil {
+		return blocked("skills_index_failed", fmt.Errorf("workflow blocked by skill indexing: %w", err))
 	}
+	snapshotMetadata := skillSnapshot.Metadata()
 	if !options.DryRun {
-		if err := w.Store.SyncSkillSnapshot(ctx, lock, snapshot); err != nil {
+		if err := w.Store.SyncSkillSnapshot(ctx, snapshotMetadata, indexedSkills); err != nil {
 			return blocked("skills_snapshot_failed", fmt.Errorf("workflow blocked while recording skill versions: %w", err))
 		}
 	}
@@ -161,6 +163,7 @@ func (w *ReleaseWorkflow) Run(ctx context.Context, productID string, options Run
 	claim, err := w.Store.ClaimWorkflow(ctx, state.ClaimRequest{
 		ProductID: productID, WorkflowID: workflowID, TriggerID: triggerID, TriggerType: options.TriggerType,
 		DedupeKey: dedupeKey, InputHash: inputHash, LeaseDuration: definition.Timeout,
+		SkillSnapshotID: snapshotMetadata.ID,
 	})
 	if errors.Is(err, state.ErrDuplicate) {
 		outcome.Status, outcome.Action, outcome.Duplicate = domain.RunNoAction, "duplicate", true
@@ -214,14 +217,16 @@ func (w *ReleaseWorkflow) Run(ctx context.Context, productID string, options Run
 	resultBytes, _ := json.Marshal(result)
 	outputHash := domain.ContentHash(string(resultBytes))
 	metadata := state.RunMetadata{
-		RepositoryCommit: lock.Commit, SkillVersions: prompt.SkillVersions, ContextVersion: approvedContext.Version,
+		RepositoryCommit: lock.Commit, SkillSnapshotID: snapshotMetadata.ID,
+		SkillVersions: prompt.SkillVersions, ContextVersion: approvedContext.Version,
 		ModelProvider: generation.Provider, ModelName: generation.Model, EvidenceIDs: evidenceIDs,
 		InputTokens: generation.Usage.InputTokens, OutputTokens: generation.Usage.OutputTokens,
 		EstimatedCostUSD: generation.EstimatedCostUSD, OutputHash: outputHash,
 	}
 	if result.Action == "no_action" {
 		err := w.Store.CompleteNoAction(ctx, state.NoActionCompletion{
-			Claim: claim, RepositoryCommit: metadata.RepositoryCommit, SkillVersions: metadata.SkillVersions,
+			Claim: claim, RepositoryCommit: metadata.RepositoryCommit, SkillSnapshotID: metadata.SkillSnapshotID,
+			SkillVersions:  metadata.SkillVersions,
 			ContextVersion: metadata.ContextVersion, EvidenceIDs: metadata.EvidenceIDs,
 			ModelProvider: metadata.ModelProvider, ModelName: metadata.ModelName, InputTokens: metadata.InputTokens,
 			OutputTokens: metadata.OutputTokens, EstimatedCostUSD: metadata.EstimatedCostUSD, OutputHash: metadata.OutputHash,
@@ -338,7 +343,7 @@ func (w *ReleaseWorkflow) recoverApproval(ctx context.Context, outcome RunOutcom
 	if err != nil {
 		return w.fail(ctx, outcome, claim, "approval_run_missing", err)
 	}
-	metadata := state.RunMetadata{RepositoryCommit: previous.RepositoryCommit, SkillVersions: previous.SkillVersions, ContextVersion: previous.ContextVersion, ModelProvider: previous.ModelProvider, ModelName: previous.ModelName, EvidenceIDs: previous.EvidenceIDs, InputTokens: previous.InputTokens, OutputTokens: previous.OutputTokens, EstimatedCostUSD: previous.EstimatedCostUSD, OutputHash: previous.OutputHash}
+	metadata := state.RunMetadata{RepositoryCommit: previous.RepositoryCommit, SkillSnapshotID: previous.SkillSnapshotID, SkillVersions: previous.SkillVersions, ContextVersion: previous.ContextVersion, ModelProvider: previous.ModelProvider, ModelName: previous.ModelName, EvidenceIDs: previous.EvidenceIDs, InputTokens: previous.InputTokens, OutputTokens: previous.OutputTokens, EstimatedCostUSD: previous.EstimatedCostUSD, OutputHash: previous.OutputHash}
 	assets, err := w.Store.AssetsForApproval(ctx, approval.ID)
 	if err != nil {
 		return w.fail(ctx, outcome, claim, "approval_assets_missing", err)

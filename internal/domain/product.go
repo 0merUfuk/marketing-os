@@ -58,15 +58,16 @@ const (
 )
 
 type ContextVersion struct {
-	ID          string        `json:"id"`
-	ProductID   string        `json:"product_id"`
-	Version     int           `json:"version"`
-	Status      ContextStatus `json:"status"`
-	Content     string        `json:"content"`
-	ContentHash string        `json:"content_hash"`
-	EvidenceIDs []string      `json:"evidence_ids"`
-	Uncertainty []string      `json:"unsupported_or_uncertain"`
-	CreatedAt   time.Time     `json:"created_at"`
-	ApprovedAt  *time.Time    `json:"approved_at,omitempty"`
-	ApprovedBy  string        `json:"approved_by,omitempty"`
+	ID              string        `json:"id"`
+	ProductID       string        `json:"product_id"`
+	Version         int           `json:"version"`
+	Status          ContextStatus `json:"status"`
+	Content         string        `json:"content"`
+	ContentHash     string        `json:"content_hash"`
+	SkillSnapshotID string        `json:"skill_snapshot_id,omitempty"`
+	EvidenceIDs     []string      `json:"evidence_ids"`
+	Uncertainty     []string      `json:"unsupported_or_uncertain"`
+	CreatedAt       time.Time     `json:"created_at"`
+	ApprovedAt      *time.Time    `json:"approved_at,omitempty"`
+	ApprovedBy      string        `json:"approved_by,omitempty"`
 }

@@ -6,7 +6,7 @@ workspace:
   products_path: ./products
 
 skills:
-  repository_path: ./.skills/marketingskills
+  repository_path: ./third_party/marketingskills
   lock_file: ./skills.lock.yaml
 
 llm:

@@ -16,7 +16,7 @@ import (
 func TestBuildReleasePromptLoadsOnlyAllowlistedSkillReferences(t *testing.T) {
 	t.Parallel()
 	repo := t.TempDir()
-	fixtures := map[string]string{"launch": "launch rules", "copywriting": "copy rules", "social": "social rules", "emails": "email rules"}
+	fixtures := map[string]string{"launch": "launch rules", "copywriting": "copy rules", "social": "social rules", "emails": "email rules", "product-marketing": "product rules"}
 	for name, body := range fixtures {
 		path := filepath.Join(repo, "skills", name, "SKILL.md")
 		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
@@ -33,7 +33,30 @@ func TestBuildReleasePromptLoadsOnlyAllowlistedSkillReferences(t *testing.T) {
 	mustPromptFile(t, filepath.Join(repo, "skills", "emails", "references", "sequence-templates.md"), "UNREQUESTED EMAIL SENTINEL")
 
 	loader := skills.NewLoader(repo, filepath.Join(repo, "lock.yaml"))
-	set, err := LoadReleaseSkills(context.Background(), loader)
+	manifest, err := loader.ComputeManifest(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	const commit = "1111111111111111111111111111111111111111"
+	lock := skills.Lock{
+		Distribution: skills.VendoredDistribution, Repository: "https://example.test/skills.git",
+		Ref: commit, Commit: commit, RepositoryVersion: "1.0.0",
+		SelectedSkills: []skills.SelectedSkill{
+			{Name: "copywriting", Version: "1.0.0"}, {Name: "emails", Version: "1.0.0"},
+			{Name: "launch", Version: "1.0.0"}, {Name: "product-marketing", Version: "1.0.0"},
+			{Name: "social", Version: "1.0.0"},
+		},
+		UpstreamManifestSHA256: strings.Repeat("a", 64), VendoredManifestSHA256: manifest,
+		UpdatedAt: time.Now().UTC(),
+	}
+	if err := skills.WriteLock(loader.LockPath, lock); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := loader.RequirePinned(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	set, err := LoadReleaseSkills(context.Background(), snapshot)
 	if err != nil {
 		t.Fatal(err)
 	}

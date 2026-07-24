@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -33,7 +34,9 @@ type Skill struct {
 	References   []string       `json:"references"`
 	Scripts      []string       `json:"scripts"`
 	Assets       []string       `json:"assets"`
-	Path         string         `json:"path"`
+	// Path is informational provenance. Verified consumers must load content
+	// through VerifiedSnapshot so they consume the bytes that were hashed.
+	Path string `json:"path"`
 }
 
 type Bundle struct {
@@ -51,73 +54,37 @@ func NewLoader(repositoryPath, lockPath string) *Loader {
 }
 
 func (l *Loader) Index(ctx context.Context) ([]Skill, error) {
-	root := filepath.Join(l.RepositoryPath, "skills")
-	entries, err := os.ReadDir(root)
+	snapshot, err := l.captureRepository(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("read skills directory: %w", err)
+		return nil, err
 	}
-	result := make([]Skill, 0, len(entries))
-	for _, entry := range entries {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
-		if !entry.IsDir() || entry.Type()&os.ModeSymlink != 0 {
-			continue
-		}
-		skill, err := l.readSkill(entry.Name())
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, skill)
-	}
-	sort.Slice(result, func(i, j int) bool { return result[i].Name < result[j].Name })
-	return result, nil
+	return snapshot.index(ctx)
 }
 
 func (l *Loader) Load(ctx context.Context, name string, requestedReferences []string) (Bundle, error) {
-	if err := validateSkillName(name); err != nil {
-		return Bundle{}, err
-	}
-	if err := ctx.Err(); err != nil {
-		return Bundle{}, err
-	}
-	skill, err := l.readSkill(name)
+	snapshot, err := l.captureRepository(ctx)
 	if err != nil {
 		return Bundle{}, err
 	}
-	allowed := make(map[string]struct{}, len(skill.References))
-	for _, ref := range skill.References {
-		allowed[ref] = struct{}{}
-	}
-	bundle := Bundle{Skill: skill, References: map[string]string{}}
-	total := len(skill.Instructions)
-	for _, requested := range requestedReferences {
-		clean, err := cleanRelative(requested)
-		if err != nil {
-			return Bundle{}, fmt.Errorf("invalid reference %q: %w", requested, err)
-		}
-		if _, ok := allowed[clean]; !ok {
-			return Bundle{}, fmt.Errorf("reference %q is not indexed for skill %s", clean, name)
-		}
-		path := filepath.Join(l.RepositoryPath, "skills", name, "references", filepath.FromSlash(clean))
-		content, err := readBoundedFile(path, maxReferenceBytes)
-		if err != nil {
-			return Bundle{}, fmt.Errorf("read reference %s/%s: %w", name, clean, err)
-		}
-		total += len(content)
-		if total > maxBundleBytes {
-			return Bundle{}, errors.New("skill bundle exceeds maximum context size")
-		}
-		bundle.References[clean] = string(content)
-	}
-	return bundle, nil
+	return snapshot.load(ctx, name, requestedReferences)
 }
 
 func (l *Loader) readSkill(directoryName string) (Skill, error) {
 	if err := validateSkillName(directoryName); err != nil {
 		return Skill{}, fmt.Errorf("invalid skill directory %q: %w", directoryName, err)
 	}
-	path := filepath.Join(l.RepositoryPath, "skills", directoryName, "SKILL.md")
+	if err := requireNonSymlinkDirectory(l.RepositoryPath); err != nil {
+		return Skill{}, fmt.Errorf("inspect skills repository: %w", err)
+	}
+	skillsDirectory := filepath.Join(l.RepositoryPath, "skills")
+	if err := requireNonSymlinkDirectory(skillsDirectory); err != nil {
+		return Skill{}, fmt.Errorf("inspect skills directory: %w", err)
+	}
+	skillDirectory := filepath.Join(skillsDirectory, directoryName)
+	if err := requireNonSymlinkDirectory(skillDirectory); err != nil {
+		return Skill{}, fmt.Errorf("inspect skill directory %s: %w", directoryName, err)
+	}
+	path := filepath.Join(skillDirectory, "SKILL.md")
 	content, err := readBoundedFile(path, maxSkillBytes)
 	if err != nil {
 		return Skill{}, fmt.Errorf("read skill %s: %w", directoryName, err)
@@ -205,15 +172,15 @@ func parseFrontmatter(content []byte) (frontmatter, string, error) {
 }
 
 func indexOptionalFiles(root string) ([]string, error) {
-	info, err := os.Stat(root)
+	info, err := os.Lstat(root)
 	if os.IsNotExist(err) {
 		return []string{}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	if !info.IsDir() {
-		return nil, fmt.Errorf("optional skill path %s is not a directory", root)
+	if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+		return nil, fmt.Errorf("optional skill path %s is not a non-symlink directory", root)
 	}
 	var files []string
 	err = filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
@@ -225,6 +192,9 @@ func indexOptionalFiles(root string) ([]string, error) {
 		}
 		if entry.IsDir() {
 			return nil
+		}
+		if entry.Type() != 0 {
+			return fmt.Errorf("optional skill file must be regular: %s", path)
 		}
 		rel, err := filepath.Rel(root, path)
 		if err != nil {
@@ -248,6 +218,11 @@ func cleanRelative(path string) (string, error) {
 	if path == "" || filepath.IsAbs(path) || strings.Contains(path, "\\") {
 		return "", errors.New("path must be a non-empty slash-separated relative path")
 	}
+	for _, segment := range strings.Split(path, "/") {
+		if segment == ".." {
+			return "", errors.New("path traversal is not allowed")
+		}
+	}
 	clean := filepath.ToSlash(filepath.Clean(filepath.FromSlash(path)))
 	if clean == "." || clean == ".." || strings.HasPrefix(clean, "../") {
 		return "", errors.New("path traversal is not allowed")
@@ -266,5 +241,28 @@ func readBoundedFile(path string, max int64) ([]byte, error) {
 	if info.Size() > max {
 		return nil, fmt.Errorf("file exceeds %d-byte limit", max)
 	}
-	return os.ReadFile(path)
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	content, err := io.ReadAll(io.LimitReader(file, max+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(content)) > max {
+		return nil, fmt.Errorf("file exceeds %d-byte limit", max)
+	}
+	return content, nil
+}
+
+func requireNonSymlinkDirectory(path string) error {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return err
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+		return errors.New("path must be a non-symlink directory")
+	}
+	return nil
 }

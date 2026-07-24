@@ -14,14 +14,15 @@ import (
 )
 
 type ClaimRequest struct {
-	ProductID     string
-	WorkflowID    string
-	TriggerID     string
-	TriggerType   string
-	DedupeKey     string
-	InputHash     string
-	LeaseDuration time.Duration
-	DryRun        bool
+	ProductID       string
+	WorkflowID      string
+	TriggerID       string
+	TriggerType     string
+	DedupeKey       string
+	InputHash       string
+	LeaseDuration   time.Duration
+	SkillSnapshotID string
+	DryRun          bool
 }
 
 type WorkflowClaim struct {
@@ -36,6 +37,7 @@ type WorkflowClaim struct {
 type NoActionCompletion struct {
 	Claim            WorkflowClaim
 	RepositoryCommit string
+	SkillSnapshotID  string
 	SkillVersions    map[string]string
 	ContextVersion   int
 	EvidenceIDs      []string
@@ -233,9 +235,10 @@ func (s *Store) ClaimWorkflow(ctx context.Context, request ClaimRequest) (Workfl
 		return WorkflowClaim{}, claimError(err)
 	}
 	runID := uuid.NewString()
-	_, err = tx.ExecContext(ctx, `INSERT INTO workflow_runs(id,product_id,workflow_id,trigger_id,trigger_type,dedupe_key,input_hash,status,attempt,fencing_token,started_at,dry_run)
-		VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, runID, request.ProductID, request.WorkflowID, request.TriggerID,
-		request.TriggerType, request.DedupeKey, request.InputHash, domain.RunRunning, attempt, fence, formatTime(now), boolInt(request.DryRun))
+	_, err = tx.ExecContext(ctx, `INSERT INTO workflow_runs(id,product_id,workflow_id,trigger_id,trigger_type,dedupe_key,input_hash,status,attempt,fencing_token,started_at,dry_run,skill_snapshot_id)
+		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`, runID, request.ProductID, request.WorkflowID, request.TriggerID,
+		request.TriggerType, request.DedupeKey, request.InputHash, domain.RunRunning, attempt, fence,
+		formatTime(now), boolInt(request.DryRun), nullableString(request.SkillSnapshotID))
 	if err != nil {
 		return WorkflowClaim{}, claimError(err)
 	}
@@ -327,8 +330,8 @@ func (s *Store) CompleteNoAction(ctx context.Context, completion NoActionComplet
 	now := s.now()
 	skillsJSON, _ := json.Marshal(nonNilMap(completion.SkillVersions))
 	evidenceJSON, _ := json.Marshal(nonNilStrings(completion.EvidenceIDs))
-	result, err := tx.ExecContext(ctx, `UPDATE workflow_runs SET status=?,repository_commit=?,skill_versions_json=?,context_version=?,model_provider=?,model_name=?,evidence_ids_json=?,finished_at=?,input_tokens=?,output_tokens=?,estimated_cost_usd=?,output_hash=? WHERE id=? AND status=? AND fencing_token=?`,
-		domain.RunNoAction, completion.RepositoryCommit, string(skillsJSON), completion.ContextVersion,
+	result, err := tx.ExecContext(ctx, `UPDATE workflow_runs SET status=?,repository_commit=?,skill_snapshot_id=?,skill_versions_json=?,context_version=?,model_provider=?,model_name=?,evidence_ids_json=?,finished_at=?,input_tokens=?,output_tokens=?,estimated_cost_usd=?,output_hash=? WHERE id=? AND status=? AND fencing_token=?`,
+		domain.RunNoAction, completion.RepositoryCommit, nullableString(completion.SkillSnapshotID), string(skillsJSON), completion.ContextVersion,
 		completion.ModelProvider, completion.ModelName, string(evidenceJSON), formatTime(now), completion.InputTokens,
 		completion.OutputTokens, completion.EstimatedCostUSD, completion.OutputHash, completion.Claim.RunID,
 		domain.RunRunning, completion.Claim.FencingToken)
@@ -425,23 +428,24 @@ func (s *Store) ListRuns(ctx context.Context, limit int) ([]domain.WorkflowRun, 
 }
 
 const runSelect = `SELECT id,product_id,workflow_id,trigger_id,trigger_type,dedupe_key,status,attempt,
-	repository_commit,skill_versions_json,context_version,model_provider,model_name,evidence_ids_json,
+	repository_commit,skill_snapshot_id,skill_versions_json,context_version,model_provider,model_name,evidence_ids_json,
 	started_at,finished_at,input_tokens,output_tokens,estimated_cost_usd,output_hash,approval_id,
 	error_code,error_message,dry_run FROM workflow_runs`
 
 func scanRun(row rowScanner) (domain.WorkflowRun, error) {
 	var run domain.WorkflowRun
 	var status, skillsJSON, evidenceJSON, started string
-	var finished sql.NullString
+	var finished, skillSnapshotID sql.NullString
 	var dry int
 	err := row.Scan(&run.ID, &run.ProductID, &run.WorkflowID, &run.TriggerID, &run.TriggerType, &run.DedupeKey,
-		&status, &run.Attempt, &run.RepositoryCommit, &skillsJSON, &run.ContextVersion, &run.ModelProvider,
+		&status, &run.Attempt, &run.RepositoryCommit, &skillSnapshotID, &skillsJSON, &run.ContextVersion, &run.ModelProvider,
 		&run.ModelName, &evidenceJSON, &started, &finished, &run.InputTokens, &run.OutputTokens, &run.EstimatedCostUSD,
 		&run.OutputHash, &run.ApprovalID, &run.ErrorCode, &run.ErrorMessage, &dry)
 	if err != nil {
 		return domain.WorkflowRun{}, err
 	}
 	run.Status = domain.RunStatus(status)
+	run.SkillSnapshotID = skillSnapshotID.String
 	run.StartedAt, _ = parseTime(started)
 	run.DryRun = dry == 1
 	_ = json.Unmarshal([]byte(skillsJSON), &run.SkillVersions)

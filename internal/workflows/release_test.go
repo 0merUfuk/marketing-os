@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -66,7 +67,7 @@ func TestReleaseToMarketingEndToEndIsIdempotentAcrossReplay(t *testing.T) {
 		t.Fatalf("calls model=%d issue=%d", h.model.calls.Load(), h.github.issuePosts.Load())
 	}
 	run, err := h.store.GetRun(ctx, first.RunID)
-	if err != nil || run.Status != domain.RunAwaitingApproval || run.RepositoryCommit != "fixture-commit" || run.ContextVersion != 1 || len(run.EvidenceIDs) == 0 {
+	if err != nil || run.Status != domain.RunAwaitingApproval || run.RepositoryCommit != "3333333333333333333333333333333333333333" || run.SkillSnapshotID == "" || run.ContextVersion != 1 || len(run.EvidenceIDs) == 0 {
 		t.Fatalf("stored run = %+v, err=%v", run, err)
 	}
 	assets, err := h.store.AssetsForApproval(ctx, first.ApprovalID)
@@ -285,7 +286,7 @@ func newHarness(t *testing.T, approveContext bool) *harness {
 	}
 
 	skillRoot := filepath.Join(root, "marketingskills")
-	for _, item := range []struct{ name, body string }{{"launch", "launch rules"}, {"copywriting", "copy rules"}, {"social", "social rules"}, {"emails", "email rules"}} {
+	for _, item := range []struct{ name, body string }{{"copywriting", "copy rules"}, {"emails", "email rules"}, {"launch", "launch rules"}, {"product-marketing", "product context rules"}, {"social", "social rules"}} {
 		writeFixture(t, filepath.Join(skillRoot, "skills", item.name, "SKILL.md"), "---\nname: "+item.name+"\ndescription: Safe "+item.name+" guidance.\nmetadata: {version: 1.0.0}\n---\n"+item.body)
 	}
 	writeFixture(t, filepath.Join(skillRoot, "skills", "social", "references", "platform-limits.md"), "platform limits")
@@ -295,7 +296,19 @@ func newHarness(t *testing.T, approveContext bool) *harness {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := skills.WriteLock(loader.LockPath, skills.Lock{Repository: "https://example.test/skills", Ref: "fixture", Commit: "fixture-commit", RepositoryVersion: "1.0.0", ManifestSHA256: manifest}); err != nil {
+	commit := "3333333333333333333333333333333333333333"
+	selected := []skills.SelectedSkill{
+		{Name: "copywriting", Version: "1.0.0"},
+		{Name: "emails", Version: "1.0.0"},
+		{Name: "launch", Version: "1.0.0"},
+		{Name: "product-marketing", Version: "1.0.0"},
+		{Name: "social", Version: "1.0.0"},
+	}
+	if err := skills.WriteLock(loader.LockPath, skills.Lock{
+		Distribution: skills.VendoredDistribution, Repository: "https://example.test/skills.git",
+		Ref: commit, Commit: commit, RepositoryVersion: "1.0.0", SelectedSkills: selected,
+		UpstreamManifestSHA256: strings.Repeat("a", 64), VendoredManifestSHA256: manifest,
+	}); err != nil {
 		t.Fatal(err)
 	}
 

@@ -7,7 +7,7 @@ This plan captures the architecture-first sequence used for the production-ready
 Deliverables:
 
 - Go module and conventional `cmd/`, `internal/`, `migrations/`, `docs/` layout.
-- Upstream `marketingskills` retained as a Git submodule.
+- Exactly five required upstream `marketingskills` vendored into the repository.
 - Strict statement of Tier 1 (analyze/generate) versus forbidden Tier 2 capabilities.
 - Architecture, database, workflow, and security choices documented.
 
@@ -15,7 +15,7 @@ Gate:
 
 - No JavaScript/TypeScript application or build-script dependency.
 - No publisher/sender/spending adapter exists.
-- Upstream license/attribution files remain untouched.
+- Upstream license, attribution, provenance, and local-modification records remain explicit.
 
 ## Milestone 1 — Configuration, products, workspace, and migrations
 
@@ -39,16 +39,18 @@ Deliverables:
 
 - Strict `SKILL.md` frontmatter parser and metadata index.
 - Explicit reference loader with path/size containment.
-- Exact commit + full repository manifest lock.
+- Preserved upstream commit/full-repository manifest provenance plus a separate vendored-runtime manifest.
+- Sorted lock inventory for exactly `product-marketing`, `launch`, `copywriting`, `social`, and `emails`.
 - Safe in-repository tracked symlink handling.
-- Explicit status/list/update CLI; no auto-update.
+- Explicit status/list CLI plus an update command that always refuses and points to the offline reviewed procedure.
 - Repository/skill version audit tables.
 
 Gate:
 
-- Actual pinned upstream commit and manifest report `pin_valid: true`.
-- Any content/commit drift blocks AI execution.
+- Vendored manifest and selected-skill inventory report `pin_valid: true`.
+- Any vendored-content or inventory drift blocks AI execution.
 - Escaping symlink/reference and invalid frontmatter tests fail closed.
+- No normal-user or CI path requires Git or submodule setup.
 
 ## Milestone 3 — Product context onboarding
 

@@ -88,7 +88,7 @@ func Default() Config {
 	return Config{
 		Database:  DatabaseConfig{Driver: "sqlite", Path: "./data/marketing-os.db"},
 		Workspace: WorkspaceConfig{ProductsPath: "./products"},
-		Skills:    SkillsConfig{RepositoryPath: "./.skills/marketingskills", LockFile: "./skills.lock.yaml"},
+		Skills:    SkillsConfig{RepositoryPath: "./third_party/marketingskills", LockFile: "./skills.lock.yaml"},
 		LLM: LLMConfig{
 			Provider: "openai-compatible", BaseURL: "https://api.openai.com/v1",
 			APIKeyEnv: "OPENAI_API_KEY", Timeout: 90, MaxRetries: 2,

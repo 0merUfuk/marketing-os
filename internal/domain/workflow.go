@@ -110,6 +110,7 @@ type WorkflowRun struct {
 	Status           RunStatus         `json:"status"`
 	Attempt          int               `json:"attempt"`
 	RepositoryCommit string            `json:"repository_commit,omitempty"`
+	SkillSnapshotID  string            `json:"skill_snapshot_id,omitempty"`
 	SkillVersions    map[string]string `json:"skill_versions"`
 	ContextVersion   int               `json:"context_version,omitempty"`
 	ModelProvider    string            `json:"model_provider,omitempty"`

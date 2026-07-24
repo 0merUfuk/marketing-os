@@ -6,7 +6,7 @@
 2. **Evidence before generation.** Every factual output must cite immutable, same-product evidence IDs accepted by a deterministic validator.
 3. **Human approval before execution.** The MVP can only stage a GitHub Issue. It has no publisher, sender, billing, or ad-platform adapter.
 4. **Local-first state.** SQLite and per-product files are canonical operational stores. Remote writes are narrow and idempotently reconciled.
-5. **Reproducible guidance.** Marketing skills are loaded from a pinned commit whose full repository manifest is verified before each AI workflow.
+5. **Reproducible guidance.** Exactly five marketing skills are vendored; their inventory and runtime manifest are verified independently from the preserved full-upstream provenance manifest before each AI workflow.
 6. **Observable state machines.** Every claimed workflow has explicit status, attempt, lease, dedupe, cursor, error, model, cost, and audit metadata.
 
 ## Component model
@@ -22,7 +22,7 @@ flowchart LR
   Context --> Store
   Runner --> Skills[Pinned Agent Skill loader]
   Context --> Skills
-  Skills --> Submodule[marketingskills Git submodule]
+  Skills --> Vendored[Vendored five-skill distribution]
 
   Runner --> GHRead[GitHub read adapter]
   Context --> Sources[Local docs + configured HTTPS sources]
@@ -49,7 +49,7 @@ flowchart LR
 | Model adapter | One structured completion with bounded retries/cost | Call tools or mutate state |
 | GitHub adapter | Read repository/releases/files; find/create approval issue | Merge, release, push, label-delete, close, or publish marketing |
 | Store | Transactions, leases, dedupe, cursors, audit | Contain model/business reasoning |
-| Skill loader | Verify pin/manifest; load requested `SKILL.md` and explicit references | Auto-update or execute upstream scripts |
+| Skill loader | Verify vendored manifest/inventory; load requested `SKILL.md` and explicit references | Network-update, add undeclared skills, or execute upstream scripts |
 
 ## Product onboarding flow
 
@@ -98,7 +98,7 @@ sequenceDiagram
 
   T->>W: run(product, release?)
   W->>DB: require enabled definition + approved context
-  W->>K: verify lock/manifest; load launch + support skills
+  W->>K: verify vendored lock/manifest; load launch + support skills
   W->>G: resolve repository identity + published release
   W->>DB: claim dedupe key + workflow lease
   W->>DB: reconcile creating approval from prior crash
@@ -158,7 +158,7 @@ internal/app/           CLI and dependency wiring
 internal/config/        strict YAML configuration
 internal/domain/        products, contexts, workflows, states
 internal/state/         SQLite migrations and transactional repository
-internal/skills/        pinned Agent Skill parser/manifest/update
+internal/skills/        vendored Agent Skill parser/manifest/update refusal
 internal/productcontext onboarding source collection and context drafting
 internal/llm/           provider abstraction, retries, cost, redaction
 internal/skillruntime/  prompt assembly, schemas, deterministic validation
@@ -168,7 +168,14 @@ internal/workflows/     release workflow state machine
 internal/scheduler/     cron reconciliation, retry, kill switch
 internal/products/      isolated atomic workspace writes
 migrations/             embedded ordered SQL migrations
+third_party/marketingskills/  exact five-skill runtime distribution + provenance
 ```
+
+## Vendored guidance boundary
+
+The runtime distribution contains only `product-marketing`, `launch`, `copywriting`, `social`, and `emails`. `skills.lock.yaml` retains the original full-upstream manifest as provenance and separately pins the actual vendored tree plus its sorted skill inventory. `third_party/marketingskills/UPSTREAM.yaml`, `THIRD_PARTY_NOTICES.md`, and the upstream `LICENSE` make source and attribution reviewable without making Git part of runtime verification.
+
+The application never fetches skill content at runtime. `skills update` fails closed and points maintainers to the offline reviewed procedure.
 
 ## Assumptions and explicit choices
 

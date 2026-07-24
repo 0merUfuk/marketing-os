@@ -8,7 +8,7 @@ Marketing OS monitors durable business events, loads pinned marketing Agent Skil
 
 - Maintains isolated workspaces and versioned, explicitly approved context for multiple products.
 - Inspects product config, allowlisted repository documents, website, docs, pricing, and changelog sources.
-- Loads `coreyhaines31/marketingskills` from a pinned Git submodule/commit and verifies a SHA-256 repository manifest before use.
+- Loads exactly five vendored skills from `coreyhaines31/marketingskills` and verifies their inventory and SHA-256 runtime manifest before use.
 - Runs `release-to-marketing` manually or on a cron cadence.
 - Reads published GitHub releases, captures immutable evidence, scores material marketability, and exits with `no_action` for weak/irrelevant events.
 - Generates exactly one release summary, changelog, LinkedIn, X, and email draft when justified.
@@ -24,15 +24,17 @@ No autonomous publishing, email sending, ad spending, purchase, approval, custom
 ## Requirements
 
 - Go 1.25+
-- Git 2.x (needed for pinned-skill verification/update)
 - SQLite is embedded through a pure-Go driver; no local SQLite package is required
 - A structured-output-capable OpenAI-compatible model endpoint
 - A GitHub token for real workflow runs (public source reads can be anonymous)
 
+Git and Git submodules are not runtime requirements. Contributors who work from a Git checkout still need Git for the usual source-control workflow.
+
 ## Setup
 
+Download and extract a source archive, or make an ordinary (non-recursive) clone. From the resulting source directory:
+
 ```sh
-git clone --recurse-submodules <repository-url>
 cd marketing-os
 cp config.example.yaml config.yaml
 ```
@@ -59,7 +61,7 @@ go build -o ./bin/marketing-os ./cmd/marketing-os
 ./bin/marketing-os skills status
 ```
 
-The committed lock currently pins upstream repository version `2.8.12` at commit `67264763cb107d61749f418d081c56e5bcbc0209`. `skills status` must report `pin_valid: true` before any AI workflow runs.
+The committed lock preserves full-upstream provenance for repository version `2.8.12` at commit `67264763cb107d61749f418d081c56e5bcbc0209`, and independently pins the five-skill runtime distribution. `skills status` must report a vendored distribution, valid inventory, and `pin_valid: true` before any AI workflow runs.
 
 ## First product
 
@@ -121,6 +123,8 @@ The kill switch is stored in SQLite and survives process restarts. It prevents s
 - [Troubleshooting](docs/troubleshooting.md)
 - [Implementation plan and acceptance gates](docs/implementation-plan.md)
 
-## Upstream Agent Skills
+## Vendored Agent Skills
 
-The marketing guidance is sourced from [`coreyhaines31/marketingskills`](https://github.com/coreyhaines31/marketingskills), retained as a Git submodule with its upstream files and license notices intact. The application does not copy or rewrite upstream skill content. Updates are explicit, reviewable, and lock-file controlled.
+The runtime contains only the five upstream skills Marketing OS uses: `product-marketing`, `launch`, `copywriting`, `social`, and `emails`. They are vendored under `third_party/marketingskills`; users do not need Git or a submodule checkout. Provenance and local-modification metadata are recorded in `third_party/marketingskills/UPSTREAM.yaml`, and attribution is preserved in `THIRD_PARTY_NOTICES.md` plus the upstream `LICENSE`.
+
+The lock keeps the historical full-upstream manifest for provenance and a separate vendored manifest for runtime integrity. Runtime updates are intentionally disabled; maintainers must follow the offline, review-first procedure in [Pinned Agent Skills](docs/skills.md#maintainer-update-procedure).

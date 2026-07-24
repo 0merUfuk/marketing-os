@@ -10,27 +10,33 @@ Set the environment variable named by `llm.api_key_env` or `github.token_env`. D
 
 For an unauthenticated loopback model, set `api_key_env: ""`. Real workflow runs require a GitHub token because issue creation is a write.
 
-## `skills repository is not at locked commit`
+## `pin_valid: false` for vendored skills
 
-Initialize the submodule and verify status:
-
-```sh
-git submodule update --init --recursive
-marketing-os skills status --json
-```
-
-If the submodule is intentionally changing, use the explicit update command and review both submodule and lock diffs. Do not hand-edit only the lock commit.
-
-## `skills repository manifest differs from lock`
-
-A tracked/untracked file, modified skill, or symlink changed under `.skills/marketingskills`. Inspect:
+No submodule initialization is needed. Inspect the status:
 
 ```sh
-git -C .skills/marketingskills status --short
-git diff --submodule=log -- .skills/marketingskills skills.lock.yaml
+marketing-os --json skills status
 ```
 
-Restore the pinned content or perform an explicit reviewed update. The workflow fails closed.
+The distribution must be `vendored`; the vendored manifest and selected-skill inventory must be valid. Restore `third_party/marketingskills` and `skills.lock.yaml` from the same trusted source archive or package revision, then run status again. Do not copy individual skill files from the network or hand-edit only a hash.
+
+Contributors can inspect an intentional source-tree change with:
+
+```sh
+git diff -- third_party/marketingskills skills.lock.yaml THIRD_PARTY_NOTICES.md
+```
+
+The workflow fails closed until content, inventory, and lock match.
+
+## `runtime skills update is disabled for vendored distribution`
+
+This refusal is expected. Marketing OS never fetches production guidance during normal operation:
+
+```text
+runtime skills update is disabled for vendored distribution; follow the reviewed offline maintainer procedure in docs/skills.md
+```
+
+Normal users should restore a trusted distribution instead of updating skills in place. Maintainers must follow the [offline reviewed procedure](skills.md#maintainer-update-procedure).
 
 ## `workflow blocked: approved product context is required`
 
