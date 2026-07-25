@@ -9,7 +9,7 @@ Deliverables:
 - verify branch, HEAD, remotes, status, staged state, and submodule pin;
 - classify every dirty/untracked path;
 - preserve blueprint/task context without committing local-only artifacts;
-- prevent `.claude/` symlinks, real `.genmedia.yml`, generated media, credentials, and private runtime data from accidental staging;
+- prevent `.claude/` symlinks, real local configuration, generated assets, credentials, and private runtime data from accidental staging;
 - delete nothing ambiguous.
 
 Gate:
