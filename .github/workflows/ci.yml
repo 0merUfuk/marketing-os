@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          submodules: false
+
+      - name: Check committed-range whitespace
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_SHA: ${{ github.sha }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -eu
+
+          all_zero_sha=0000000000000000000000000000000000000000
+          case "$EVENT_NAME" in
+            pull_request)
+              base_sha="$PR_BASE_SHA"
+              ;;
+            push)
+              base_sha="$PUSH_BEFORE_SHA"
+              ;;
+            *)
+              echo "Unsupported event: $EVENT_NAME" >&2
+              exit 1
+              ;;
+          esac
+
+          if [ -z "$base_sha" ] || [ "$base_sha" = "$all_zero_sha" ]; then
+            empty_tree_sha="$(git hash-object -t tree -w /dev/null)"
+            git diff --check "$empty_tree_sha" "$HEAD_SHA"
+          else
+            git diff --check "$base_sha...$HEAD_SHA"
+          fi
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Check Go formatting
+        run: |
+          make fmt
+          git diff --exit-code -- '*.go'
+
+      - name: Check module files
+        run: |
+          make tidy
+          module_status="$(git status --porcelain -- go.mod go.sum)"
+          if [ -n "$module_status" ]; then
+            printf '%s\n' "$module_status"
+            exit 1
+          fi
+
+      - name: Run tests
+        run: make test
+
+      - name: Run race tests
+        run: make test-race
+
+      - name: Run vet
+        run: make vet
+
+      - name: Build
+        run: make build
+
+      - name: Run smoke test
+        run: make smoke
+
+      - name: Check patch whitespace
+        run: git diff --check
