@@ -5,7 +5,7 @@
 This document separates implemented behavior from the ratified target.
 
 - **Implemented now:** Go modular monolith, Cobra CLI, cron scheduler, SQLite, bounded model/skills runtime, and idempotent GitHub approval issues.
-- **Target seam:** a thin Go HTTP/webhook host for a future GitHub App.
+- **Target seam:** a thin Go HTTP/webhook host for a future GitHub App, specified in [`GITHUB_APP_IMPLEMENTATION_PLAN.md`](GITHUB_APP_IMPLEMENTATION_PLAN.md).
 - **Not authorized here:** App registration, credentials, deployment, cloud selection, PostgreSQL implementation, dashboard, Marketplace, or multi-tenancy.
 
 The target is one engine with two hosts, not two products.
@@ -65,12 +65,14 @@ After a separately approved GitHub App implementation begins:
 2. Verify the GitHub webhook signature before parsing or acknowledging work.
 3. Accept only the configured event and the `published` release action; reject/ignore every other event fail-closed.
 4. Extract immutable delivery, installation, repository, and release identifiers. The future App requires the immutable repository ID sourced from authenticated GitHub data; the current CLI's repository ID remains optional.
-5. Persist a separate delivery-ID-deduplicated record before returning success. Retain only delivery ID, installation ID, repository ID, release ID, event/action, receipt time, disposition, and a bounded reason code—not a raw body, credential, or arbitrary payload field.
+5. Persist a separate delivery-ID-deduplicated record before returning success. Retain only the delivery ID, payload hash, installation/repository/release IDs, event/action, receipt time, disposition, allowlisted reason code, and—only for dispatchable work—bounded queue/lease/attempt fields. Do not retain a raw body, signature, credential, free-form diagnostic, or arbitrary payload field.
 6. Return promptly; process asynchronously with bounded retries and observable terminal failure.
 7. Resolve the installation/repository to an existing product whose context is approved and workflow is enabled. If any readiness precondition fails, mark the delivery `blocked_precondition`, make no model or approval-issue call, and stop.
 8. Obtain a narrowly scoped installation token at runtime; never persist or log the token.
 9. Invoke the existing release service with the immutable release ID and an explicit webhook trigger type.
 10. Let the existing workflow own evidence, model calls, validation, dedupe, approval intent, marker reconciliation, and `awaiting_approval`.
+
+The implementation-level HTTP, signature, lifecycle, delivery, permission, token, retry, privacy, and test contracts are normative in [`GITHUB_APP_IMPLEMENTATION_PLAN.md`](GITHUB_APP_IMPLEMENTATION_PLAN.md).
 
 GitHub delivery dedupe protects transport ingestion. The existing release dedupe protects business execution. Both are required. A blocked delivery is never replayed automatically after approval or enablement. Any retry is an explicit operator action that reuses the recorded immutable release ID—not a lookup of the latest release—and passes every current precondition and release dedupe check again.
 
@@ -86,13 +88,14 @@ A PostgreSQL seam is a future prerequisite for managed multi-tenancy, not a curr
 
 ### GitHub Actions fallback
 
-The existing reusable Action may invoke the CLI for power users/self-hosted runners. It must not encode a separate workflow, weaken context/skills verification, or gain publishing behavior. This repository currently has no local `.github/workflows` directory; minimal CI is addressed in [`TESTING_AND_RELEASE.md`](TESTING_AND_RELEASE.md), not as product logic.
+The existing reusable Action may invoke the CLI for power users/self-hosted runners. It must not encode a separate workflow, weaken context/skills verification, or gain publishing behavior. Repository CI now lives at `.github/workflows/ci.yml` and verifies the project; it is not product trigger logic. CI requirements remain in [`TESTING_AND_RELEASE.md`](TESTING_AND_RELEASE.md).
 
 ## Reliability and failure rules
 
 - Acknowledged webhook deliveries must be durable before asynchronous processing.
+- A pre-deployment App-delivery monitor and bounded listing/redelivery runbook or reconciler must recover transient ingress failures that were never acknowledged or persisted; internal retries cannot recover absent rows.
 - Delivery and release identities must be immutable provider IDs, not tag names or titles.
-- Delivery records contain only the minimal authenticated metadata needed for dedupe, disposition, and explicit retry. A retention/deletion policy requires privacy and operations review before deployment; tests must not silently establish that policy.
+- Delivery records contain only the minimal authenticated metadata needed for conflict-safe dedupe, disposition, bounded queue leasing, and explicit retry. Terminal pre-readiness rows do not acquire queue/lease/attempt data. A retention/deletion policy requires privacy and operations review before deployment; tests must not silently establish that policy.
 - Retries must be bounded, cancellable, and observable.
 - An expired/revoked installation, deleted repository, missing mapping, disabled workflow, invalid skills manifest, unapproved context, or kill switch blocks processing.
 - A readiness-blocked delivery records the bounded precondition failure, performs no model/issue call, and is never automatically replayed after state changes.
@@ -110,7 +113,7 @@ The existing reusable Action may invoke the CLI for power users/self-hosted runn
 | Product/repository identity | Current CLI accepts an optional repository ID | App-created products require immutable repository ID and name sourced from authenticated installation data |
 | Product context | `internal/productcontext/service.go` | App onboarding cannot enable/run before explicit approval |
 | GitHub access | `internal/github/client.go`, `workflows.GitHubAPI` | Installation auth is narrow, runtime-only, redacted |
-| Durable trigger inbox | Not implemented | Minimal metadata schema, delivery dedupe, blocked disposition, explicit identity-preserving retry, no-auto-replay tests, cancellation/recovery, and retention policy approved |
+| Durable trigger inbox | Not implemented | Implement the schema, state machine, and tests in [`GITHUB_APP_IMPLEMENTATION_PLAN.md`](GITHUB_APP_IMPLEMENTATION_PLAN.md); approve retention before deployment |
 | Store abstraction | SQLite implementation in `internal/state` | Shared contract suite exists before PostgreSQL |
 | Web UI/auth | Not implemented | Owner approves scope; Q-AUTH-1/Q-DASHBOARD-1 defaults remain provisional |
 

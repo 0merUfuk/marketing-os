@@ -80,9 +80,9 @@ Gate:
 
 ## Phase 4 — GitHub App seam
 
-For this execution, the required deliverable is [`ARCHITECTURE.md`](ARCHITECTURE.md). Do not implement or deploy the App unless a later owner-approved handoff explicitly opens that scope.
+For this execution, the required deliverables are [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`GITHUB_APP_IMPLEMENTATION_PLAN.md`](GITHUB_APP_IMPLEMENTATION_PLAN.md). Do not implement, register, or deploy the App unless a later owner-approved handoff explicitly opens that scope.
 
-A future implementation phase must first add tests/design for signature verification; a separate minimal delivery record deduped by delivery ID; durable async dispatch; authenticated installation/repository mapping with required immutable repository ID; scoped token lifecycle; revocation/uninstall; blocked-precondition disposition; explicit retries that retain the recorded release ID; no automatic replay after readiness changes; retry/dead-letter behavior; context and workflow-enable gates; and shared-runner invocation. Tests must prove a pre-readiness delivery makes no model/approval-issue call and cannot spring into execution after later approval or enablement.
+A future implementation phase must follow the plan's signature/body limits, durable receipt, default installation lifecycle, authorization, scoped token, shared-runner, lease/retry/dead-letter, privacy, and staged acceptance contracts. Tests must prove a pre-readiness delivery makes no model/approval-issue call and cannot spring into execution after later approval or enablement.
 
 Before deployment, the owner must approve a retention/deletion policy for minimal delivery metadata. Test cleanup or ephemeral fixtures are not a production retention decision.
 
@@ -132,7 +132,7 @@ After formatting/tidy, inspect the diff and rerun relevant checks if either chan
 | Kill switch | blocks scheduled attempts/retries and persists |
 | CLI | setup/status/list/run controls and stable JSON output |
 | Security | secret redaction, URL policy, bounded network/files, no forbidden adapter |
-| Future webhook seam | authenticated immutable repository/release IDs, minimal deduped record, blocked precondition, no model/issue call, no auto-replay, explicit retry preserves release identity |
+| Future webhook seam | complete matrix in [`GITHUB_APP_IMPLEMENTATION_PLAN.md`](GITHUB_APP_IMPLEMENTATION_PLAN.md), including authenticated raw-body verification, immutable identities, minimal deduped receipt, lifecycle disablement, blocked precondition, no model/issue call, no auto-replay, and identity-preserving explicit retry |
 | Race/build | race suite, vet, trimmed binary, smoke |
 
 ## Commit and push gate

@@ -87,12 +87,12 @@ Q-AUTH-1, Q-MODEL-1, and Q-DASHBOARD-1 remain OPEN. Their fail-closed defaults a
 
 A future App may receive an authenticated `release.published` delivery before context approval or workflow enablement. After signature verification, it must:
 
-1. write a separate, delivery-ID-deduplicated record containing only the provider delivery ID, installation ID, immutable repository ID, immutable release ID, event/action, receipt time, and disposition;
+1. write a separate, delivery-ID-deduplicated terminal record containing only the provider delivery ID, payload hash, installation ID, immutable repository ID, immutable release ID, event/action, receipt time, and disposition;
 2. mark the record `blocked_precondition` with a bounded reason code;
 3. make no model call, approval-issue call, workflow-domain write, or implicit workflow enablement;
 4. never auto-replay the delivery when context is later approved or the workflow is enabled.
 
-Any later retry must be an explicit operator action, reference the already-recorded immutable release identity rather than “latest release,” and still pass normal release dedupe and all current preconditions. Raw webhook bodies, credentials, and arbitrary payload fields must not be retained in this minimal record. Exact retention/deletion periods remain a pre-deployment privacy and operations decision; tests may use immediate cleanup or an isolated ephemeral store but must not imply a production retention policy.
+Any later retry must be an explicitly authorized operator action, reference the already-recorded immutable release identity rather than “latest release,” and still pass normal release dedupe and all current preconditions. Raw webhook bodies, signatures, credentials, free-form diagnostics, and arbitrary payload fields must not be retained in this minimal record. Because the row is terminal, it does not acquire queue/lease/attempt data unless an authorized explicit retry begins. Exact retention/deletion periods remain a pre-deployment privacy and operations decision; tests may use immediate cleanup or an isolated ephemeral store but must not imply a production retention policy.
 
 ## Failure and recovery
 

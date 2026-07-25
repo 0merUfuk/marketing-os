@@ -4,7 +4,7 @@
 
 **Decision authority:** [`DECISIONS.md`](DECISIONS.md)
 
-**Scope:** vendored skills, community-ready self-hosting, and the architecture seam for a future GitHub App
+**Scope:** vendored skills, community-ready self-hosting, and an implementation-ready, owner-gated GitHub App plan
 
 **Out of scope:** GitHub App registration/deployment, cloud selection, pricing, Marketplace publication, branding changes, credentials, and any automatic publishing/sending/spending/approval
 
@@ -37,6 +37,7 @@ Important current evidence:
 |---|---|
 | [`PRODUCT.md`](PRODUCT.md) | Product brief, target users, positioning, requirements, and non-goals |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Shared Go core, current CLI host, and future GitHub App host seam |
+| [`GITHUB_APP_IMPLEMENTATION_PLAN.md`](GITHUB_APP_IMPLEMENTATION_PLAN.md) | Webhook, lifecycle, authorization, token, delivery, test, and owner-gate implementation contract |
 | [`VENDORED_SKILLS.md`](VENDORED_SKILLS.md) | Option A migration, exact provenance contract, and attribution requirements |
 | [`ONBOARDING.md`](ONBOARDING.md) | Context-first installation and first-success flow |
 | [`TRUST_AND_SAFETY.md`](TRUST_AND_SAFETY.md) | Non-negotiable runtime, data, model, and side-effect invariants |
@@ -47,13 +48,13 @@ Important current evidence:
 
 | Decision | Blueprint implementation |
 |---|---|
-| D-001 | [`PRODUCT.md`](PRODUCT.md) and the two-host model in [`ARCHITECTURE.md`](ARCHITECTURE.md) |
+| D-001 | [`PRODUCT.md`](PRODUCT.md), the two-host model in [`ARCHITECTURE.md`](ARCHITECTURE.md), and the owner-gated App plan |
 | D-002 | [`VENDORED_SKILLS.md`](VENDORED_SKILLS.md) |
 | D-003 | [`TRUST_AND_SAFETY.md`](TRUST_AND_SAFETY.md) |
-| D-004 | Asynchronous `release.published` target flow in [`ARCHITECTURE.md`](ARCHITECTURE.md) |
-| D-005 | One shared workflow engine, two thin hosts in [`ARCHITECTURE.md`](ARCHITECTURE.md) |
-| D-006 | SQLite now; PostgreSQL only behind a future contract-tested seam in [`ARCHITECTURE.md`](ARCHITECTURE.md) |
-| D-007 | [`ONBOARDING.md`](ONBOARDING.md) |
+| D-004 | Asynchronous `release.published` target flow in [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`GITHUB_APP_IMPLEMENTATION_PLAN.md`](GITHUB_APP_IMPLEMENTATION_PLAN.md) |
+| D-005 | One shared workflow engine, two thin hosts in [`ARCHITECTURE.md`](ARCHITECTURE.md) and the App package seams |
+| D-006 | SQLite now; PostgreSQL only behind a future contract-tested seam in [`ARCHITECTURE.md`](ARCHITECTURE.md) and the App owner gates |
+| D-007 | [`ONBOARDING.md`](ONBOARDING.md) and the authenticated-and-authorized App onboarding contract |
 | D-008 | GitHub Actions remains a fallback in [`PRODUCT.md`](PRODUCT.md) and [`ARCHITECTURE.md`](ARCHITECTURE.md) |
 | D-009 | Attribution and modification ledger in [`VENDORED_SKILLS.md`](VENDORED_SKILLS.md) |
 | D-010 | Candidate only; excluded from implementation and release gates |
@@ -64,7 +65,7 @@ Important current evidence:
 2. Complete and review this blueprint against D-001 through D-009.
 3. Execute the vendored-skills migration and its documentation/test changes.
 4. Add minimal secret-free CI if this repository still lacks it.
-5. Stop at the documented GitHub App seam unless a separate owner-approved implementation handoff exists.
+5. Complete the owner-gated plan in [`GITHUB_APP_IMPLEMENTATION_PLAN.md`](GITHUB_APP_IMPLEMENTATION_PLAN.md), then stop before App code, registration, credentials, or deployment unless a separate owner-approved implementation handoff exists.
 6. Run every gate in [`TESTING_AND_RELEASE.md`](TESTING_AND_RELEASE.md), then commit and push only intentional files.
 
 No phase may weaken a safety invariant to make a later phase pass.
