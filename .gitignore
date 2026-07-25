@@ -6,6 +6,7 @@
 
 # Local/private agent ecosystem state
 /.claude/
+/.hermes/
 
 # Product runtime artifacts may contain private evidence or drafts
 /products/*/evidence/

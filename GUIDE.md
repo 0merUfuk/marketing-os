@@ -196,7 +196,7 @@ You can put these in your shell profile, a `.env` file loaded by your shell, or 
   --name "Acme Widget" \
   --repository acme/widget \
   --repository-id 123456789 \
-  --local-repository /Users/omerufuk/code/acme-widget \
+  --local-repository /path/to/acme-widget \
   --website https://acme.example \
   --docs https://docs.acme.example \
   --pricing https://acme.example/pricing \
