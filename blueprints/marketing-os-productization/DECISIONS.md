@@ -1,7 +1,7 @@
 # Marketing OS Productization — DECISIONS.md (Living Ledger)
 
 **Created**: 2026-07-21
-**Last Updated**: 2026-07-21
+**Last Updated**: 2026-07-26
 **Owner**: Ömer Ufuk Boz
 **Status legend**: RATIFIED (binding) · CANDIDATE (proposed, awaiting ruling) · OPEN (owner + validation method + fail-closed default) · SUPERSEDED (kept, banner names successor)
 
@@ -173,7 +173,7 @@ Candidate model: self-hosted remains free; hosted cloud is free for public repos
 | ID | Item | Owner | Validation method | Fail-closed default | Status |
 |---|---|---|---|---|---|
 | Q-SKILLS-1 | Which upstream skills beyond the five required should be vendored for v0.2? | Ufuk | Audit workflow prompts + `skills.Load` calls + future roadmap | Vendor only `product-marketing`, `launch`, `copywriting`, `social`, `emails` | OPEN |
-| Q-LEGAL-1 | Is centralized `THIRD_PARTY_NOTICES.md` enough, or should each vendored skill directory include a short NOTICE? | Ufuk | Review MIT license practice and GitHub community expectations | Include centralized notice + keep original upstream LICENSE copy under `vendor/marketingskills/LICENSE` | OPEN |
+| Q-LEGAL-1 | Is centralized `THIRD_PARTY_NOTICES.md` enough, or should each vendored skill directory include a short NOTICE? | Ufuk | Review MIT license practice and GitHub community expectations | Include centralized notice + keep original upstream LICENSE copy under `third_party/marketingskills/LICENSE` | OPEN |
 | Q-CLOUD-1 | First cloud host: Railway, Fly.io, Render, or Vercel+worker split? | Ufuk | Compare webhook latency, persistent storage, pricing, background worker support | Keep self-hosted only; design cloud seam but do not launch hosted tier | OPEN |
 | Q-AUTH-1 | GitHub App install flow: only GitHub auth or also email/password for non-GitHub collaborators? | Ufuk | Interview 3 target users; test approval flow with repo owners vs marketers | GitHub-only auth in v0.2 | OPEN |
 | Q-MODEL-1 | BYOK only, hosted model broker, or both? | Ufuk | Cost model + user trust survey + run 20 sample releases | BYOK only in v0.2 | OPEN |
