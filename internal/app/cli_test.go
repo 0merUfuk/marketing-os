@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/omerufuk/marketing-os/internal/domain"
+	"github.com/omerufuk/marketing-os/internal/skills"
 	"github.com/omerufuk/marketing-os/internal/state"
 )
 
@@ -67,6 +70,112 @@ func TestCLIProductRegistrationListingAndDurableStopAll(t *testing.T) {
 	workflow, err := store.GetWorkflow(context.Background(), "widget", domain.ReleaseToMarketingWorkflowID)
 	if err != nil || workflow.Enabled {
 		t.Fatalf("workflow=%+v err=%v", workflow, err)
+	}
+}
+
+func TestCLIVendoredSkillsStatusListAndInvalidExit(t *testing.T) {
+	root := t.TempDir()
+	configPath := writeCLIConfig(t, root)
+	writeCLISkillsFixture(t, root)
+
+	var output bytes.Buffer
+	command := NewRootCommand()
+	command.SetOut(&output)
+	command.SetErr(&output)
+	command.SetArgs([]string{"--config", configPath, "--json", "skills", "status"})
+	if err := command.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("valid skills status: %v\n%s", err, output.String())
+	}
+	var status skills.Status
+	if err := json.Unmarshal(output.Bytes(), &status); err != nil || !status.PinValid || !status.InventoryMatches {
+		t.Fatalf("status=%+v err=%v output=%s", status, err, output.String())
+	}
+
+	output.Reset()
+	command = NewRootCommand()
+	command.SetOut(&output)
+	command.SetErr(&output)
+	command.SetArgs([]string{"--config", configPath, "--json", "skills", "list"})
+	if err := command.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("skills list: %v\n%s", err, output.String())
+	}
+	var indexed []skills.Skill
+	if err := json.Unmarshal(output.Bytes(), &indexed); err != nil || len(indexed) != 5 {
+		t.Fatalf("indexed=%+v err=%v output=%s", indexed, err, output.String())
+	}
+
+	skillPath := filepath.Join(root, "skills", "skills", "launch", "SKILL.md")
+	if err := os.WriteFile(skillPath, []byte("---\nname: launch\ndescription: tampered\nmetadata: {version: 1.0.0}\n---\nchanged\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	output.Reset()
+	command = NewRootCommand()
+	command.SetOut(&output)
+	command.SetErr(&output)
+	command.SetArgs([]string{"--config", configPath, "--json", "skills", "status"})
+	err := command.ExecuteContext(context.Background())
+	if !errors.Is(err, skills.ErrInvalidPin) || !strings.Contains(output.String(), `"pin_valid": false`) {
+		t.Fatalf("invalid status err=%v output=%s", err, output.String())
+	}
+}
+
+func TestCLIVendoredSkillsUpdateRefusesBeforeFilesystemMutation(t *testing.T) {
+	for _, args := range [][]string{{"skills", "update"}, {"skills", "update", "--ref", strings.Repeat("1", 40)}} {
+		t.Run(strings.Join(args, "_"), func(t *testing.T) {
+			root := t.TempDir()
+			missingConfig := filepath.Join(root, "missing.yaml")
+			var output bytes.Buffer
+			command := NewRootCommand()
+			command.SetOut(&output)
+			command.SetErr(&output)
+			command.SetArgs(append([]string{"--config", missingConfig}, args...))
+			err := command.ExecuteContext(context.Background())
+			if !errors.Is(err, skills.ErrVendoredUpdateDisabled) {
+				t.Fatalf("update err=%v output=%s", err, output.String())
+			}
+			entries, readErr := os.ReadDir(root)
+			if readErr != nil {
+				t.Fatal(readErr)
+			}
+			if len(entries) != 0 {
+				t.Fatalf("runtime update mutated filesystem: %+v", entries)
+			}
+		})
+	}
+}
+
+func writeCLISkillsFixture(t *testing.T, root string) {
+	t.Helper()
+	repository := filepath.Join(root, "skills")
+	for _, name := range []string{"copywriting", "emails", "launch", "product-marketing", "social"} {
+		path := filepath.Join(repository, "skills", name, "SKILL.md")
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		content := "---\nname: " + name + "\ndescription: Safe " + name + " guidance.\nmetadata: {version: 1.0.0}\n---\nbody\n"
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	loader := skills.NewLoader(repository, filepath.Join(root, "skills.lock.yaml"))
+	manifest, err := loader.ComputeManifest(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	commit := strings.Repeat("4", 40)
+	selected := []skills.SelectedSkill{
+		{Name: "copywriting", Version: "1.0.0"},
+		{Name: "emails", Version: "1.0.0"},
+		{Name: "launch", Version: "1.0.0"},
+		{Name: "product-marketing", Version: "1.0.0"},
+		{Name: "social", Version: "1.0.0"},
+	}
+	if err := skills.WriteLock(loader.LockPath, skills.Lock{
+		Distribution: skills.VendoredDistribution, Repository: "https://example.test/skills.git",
+		Ref: commit, Commit: commit, RepositoryVersion: "1.0.0", SelectedSkills: selected,
+		UpstreamManifestSHA256: strings.Repeat("a", 64), VendoredManifestSHA256: manifest,
+	}); err != nil {
+		t.Fatal(err)
 	}
 }
 

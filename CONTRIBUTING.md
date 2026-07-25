@@ -5,13 +5,13 @@ Thank you for your interest in contributing. This document covers setup, testing
 ## Prerequisites
 
 - Go 1.25.6 or later
-- Git 2.x
+- Git 2.x (for contribution source control; Marketing OS does not require Git at runtime)
 - macOS, Linux, or any OS that runs Go
 
 ## Setup
 
 ```sh
-git clone --recurse-submodules https://github.com/0merUfuk/marketing-os.git
+git clone https://github.com/0merUfuk/marketing-os.git
 cd marketing-os
 make install-deps
 make build
@@ -71,15 +71,13 @@ See `docs/adding-a-workflow.md` for the state-machine, evidence, model, validati
 
 ## Updating marketing skills
 
-Marketing skills are a pinned Git submodule. Do not edit files inside `.skills/marketingskills` directly.
-
-To update to a new upstream commit:
+Marketing OS vendors exactly five reviewed upstream skills under `third_party/marketingskills`. The runtime command intentionally refuses all updates:
 
 ```sh
-go run ./cmd/marketing-os --config ./config.example.yaml skills update --ref <new-commit-or-tag>
+go run ./cmd/marketing-os --config ./config.example.yaml skills update
 ```
 
-Review the submodule diff and `skills.lock.yaml` before committing. Never run workflows with an unmatched lock.
+The refusal prevents a network fetch from changing production guidance. Maintainers must instead follow the [offline reviewed procedure](docs/skills.md#maintainer-update-procedure), including synchronized updates to the vendored files, `UPSTREAM.yaml`, `THIRD_PARTY_NOTICES.md`, and both manifests in `skills.lock.yaml`. Never merge an unmatched lock or an unreviewed extra skill.
 
 ## Security constraints
 

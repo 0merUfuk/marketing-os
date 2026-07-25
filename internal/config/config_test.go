@@ -16,7 +16,7 @@ database:
   driver: sqlite
   path: ./data/test.db
 skills:
-  repository_path: ./.skills/marketingskills
+  repository_path: ./third_party/marketingskills
   lock_file: ./skills.lock.yaml
 llm:
   provider: openai-compatible
@@ -56,7 +56,7 @@ func TestLoadRejectsUnknownFieldsIncludingInlineToken(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	content := `
 database: {driver: sqlite, path: ./test.db}
-skills: {repository_path: ./.skills/marketingskills, lock_file: ./skills.lock.yaml}
+skills: {repository_path: ./third_party/marketingskills, lock_file: ./skills.lock.yaml}
 llm: {provider: mock, model: mock}
 github:
   token: should-never-be-here
@@ -95,7 +95,7 @@ func TestValidateRejectsIncompleteOrUnsafeServiceConfiguration(t *testing.T) {
 func TestValidateRejectsTier2Enablement(t *testing.T) {
 	cfg := Default()
 	cfg.Database.Path = "test.db"
-	cfg.Skills.RepositoryPath = ".skills/marketingskills"
+	cfg.Skills.RepositoryPath = "third_party/marketingskills"
 	cfg.Skills.LockFile = "skills.lock.yaml"
 	cfg.Safety.PublishingEnabled = true
 	if err := cfg.Validate(); err == nil {

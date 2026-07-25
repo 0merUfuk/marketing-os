@@ -190,6 +190,10 @@ func (s *Store) ListProducts(ctx context.Context) ([]domain.Product, error) {
 }
 
 func (s *Store) CreateContextDraft(ctx context.Context, productID, content string, evidenceIDs, uncertainty []string) (domain.ContextVersion, error) {
+	return s.CreateContextDraftWithSkillSnapshot(ctx, productID, content, evidenceIDs, uncertainty, "")
+}
+
+func (s *Store) CreateContextDraftWithSkillSnapshot(ctx context.Context, productID, content string, evidenceIDs, uncertainty []string, skillSnapshotID string) (domain.ContextVersion, error) {
 	if strings.TrimSpace(content) == "" {
 		return domain.ContextVersion{}, errors.New("context content is required")
 	}
@@ -211,14 +215,14 @@ func (s *Store) CreateContextDraft(ctx context.Context, productID, content strin
 	v := domain.ContextVersion{
 		ID: uuid.NewString(), ProductID: productID, Version: version, Status: domain.ContextDraft,
 		Content: content, ContentHash: hashString(content), EvidenceIDs: nonNilStrings(evidenceIDs),
-		Uncertainty: nonNilStrings(uncertainty), CreatedAt: now,
+		Uncertainty: nonNilStrings(uncertainty), SkillSnapshotID: skillSnapshotID, CreatedAt: now,
 	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO product_context_versions(
 		id, product_id, version, status, content, content_hash, evidence_ids_json,
-		uncertainty_json, created_at, approved_by
-	) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, '')`,
+		uncertainty_json, created_at, approved_by, skill_snapshot_id
+	) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?)`,
 		v.ID, v.ProductID, v.Version, v.Status, v.Content, v.ContentHash,
-		string(evidenceJSON), string(uncertaintyJSON), formatTime(now))
+		string(evidenceJSON), string(uncertaintyJSON), formatTime(now), nullableString(skillSnapshotID))
 	if err != nil {
 		return domain.ContextVersion{}, fmt.Errorf("insert context draft: %w", err)
 	}
@@ -271,7 +275,7 @@ func (s *Store) ApproveContext(ctx context.Context, productID string, version in
 }
 
 const contextSelect = `SELECT id, product_id, version, status, content, content_hash,
-	evidence_ids_json, uncertainty_json, created_at, approved_at, approved_by
+	evidence_ids_json, uncertainty_json, created_at, approved_at, approved_by, skill_snapshot_id
 	FROM product_context_versions`
 
 func (s *Store) ApprovedContext(ctx context.Context, productID string) (domain.ContextVersion, error) {
@@ -312,11 +316,12 @@ type rowScanner interface{ Scan(...any) error }
 func scanContext(row rowScanner) (domain.ContextVersion, error) {
 	var v domain.ContextVersion
 	var status, evidenceJSON, uncertaintyJSON, created string
-	var approved sql.NullString
+	var approved, skillSnapshotID sql.NullString
 	if err := row.Scan(&v.ID, &v.ProductID, &v.Version, &status, &v.Content, &v.ContentHash,
-		&evidenceJSON, &uncertaintyJSON, &created, &approved, &v.ApprovedBy); err != nil {
+		&evidenceJSON, &uncertaintyJSON, &created, &approved, &v.ApprovedBy, &skillSnapshotID); err != nil {
 		return domain.ContextVersion{}, err
 	}
+	v.SkillSnapshotID = skillSnapshotID.String
 	v.Status = domain.ContextStatus(status)
 	v.CreatedAt, _ = parseTime(created)
 	_ = json.Unmarshal([]byte(evidenceJSON), &v.EvidenceIDs)
@@ -333,6 +338,13 @@ func scanContext(row rowScanner) (domain.ContextVersion, error) {
 func hashString(value string) string {
 	sum := sha256.Sum256([]byte(value))
 	return hex.EncodeToString(sum[:])
+}
+
+func nullableString(value string) any {
+	if value == "" {
+		return nil
+	}
+	return value
 }
 
 func nonNilStrings(values []string) []string {

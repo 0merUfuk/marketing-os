@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - CONTRIBUTING.md guide for community contributors.
 - Makefile with standard build, test, vet, and smoke targets.
+- First-class upstream provenance and MIT attribution through `third_party/marketingskills/UPSTREAM.yaml` and `THIRD_PARTY_NOTICES.md`.
+
+### Changed
+
+- Replaced the normal-user marketing-skills submodule with exactly five vendored runtime skills: `product-marketing`, `launch`, `copywriting`, `social`, and `emails`.
+- Extended the skills lock with a deterministic selected-skill inventory and separate vendored-runtime manifest while preserving the original full-upstream provenance manifest.
+- Made runtime `skills update` fail closed and direct maintainers to the offline reviewed update procedure.
 
 ## [0.1.0] - 2026-07-20
 

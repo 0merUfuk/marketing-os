@@ -61,7 +61,7 @@ func TestDraftAndApproveCanonicalProductContext(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if draft.Status != domain.ContextDraft || draft.Version != 1 || len(draft.EvidenceIDs) == 0 || len(draft.Uncertainty) == 0 {
+	if draft.Status != domain.ContextDraft || draft.Version != 1 || draft.SkillSnapshotID == "" || len(draft.EvidenceIDs) == 0 || len(draft.Uncertainty) == 0 {
 		t.Fatalf("draft=%+v", draft)
 	}
 	if _, err := store.ApprovedContext(ctx, "widget"); err == nil {
@@ -109,19 +109,38 @@ func TestDraftRejectsUnknownEvidenceReference(t *testing.T) {
 func contextSkillFixture(t *testing.T, root string) *skills.Loader {
 	t.Helper()
 	repo := filepath.Join(root, "skills")
-	path := filepath.Join(repo, "skills", "product-marketing", "SKILL.md")
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte("---\nname: product-marketing\ndescription: Build evidence-based product context.\nmetadata: {version: 1.0.0}\n---\nMark unknown facts explicitly."), 0o600); err != nil {
-		t.Fatal(err)
+	for _, name := range []string{"copywriting", "emails", "launch", "product-marketing", "social"} {
+		path := filepath.Join(repo, "skills", name, "SKILL.md")
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		body := "Safe supporting guidance."
+		if name == "product-marketing" {
+			body = "Mark unknown facts explicitly."
+		}
+		content := "---\nname: " + name + "\ndescription: Safe " + name + " guidance.\nmetadata: {version: 1.0.0}\n---\n" + body
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
 	}
 	loader := skills.NewLoader(repo, filepath.Join(root, "skills.lock.yaml"))
 	manifest, err := loader.ComputeManifest(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := skills.WriteLock(loader.LockPath, skills.Lock{Repository: "fixture", Ref: "fixture", Commit: "fixture-context", ManifestSHA256: manifest}); err != nil {
+	commit := "2222222222222222222222222222222222222222"
+	selected := []skills.SelectedSkill{
+		{Name: "copywriting", Version: "1.0.0"},
+		{Name: "emails", Version: "1.0.0"},
+		{Name: "launch", Version: "1.0.0"},
+		{Name: "product-marketing", Version: "1.0.0"},
+		{Name: "social", Version: "1.0.0"},
+	}
+	if err := skills.WriteLock(loader.LockPath, skills.Lock{
+		Distribution: skills.VendoredDistribution, Repository: "https://example.test/skills.git",
+		Ref: commit, Commit: commit, RepositoryVersion: "1.0.0", SelectedSkills: selected,
+		UpstreamManifestSHA256: strings.Repeat("a", 64), VendoredManifestSHA256: manifest,
+	}); err != nil {
 		t.Fatal(err)
 	}
 	return loader

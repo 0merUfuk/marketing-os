@@ -12,6 +12,7 @@ import (
 	"github.com/omerufuk/marketing-os/internal/domain"
 	"github.com/omerufuk/marketing-os/internal/productcontext"
 	"github.com/omerufuk/marketing-os/internal/scheduler"
+	"github.com/omerufuk/marketing-os/internal/skills"
 	"github.com/omerufuk/marketing-os/internal/workflows"
 	"github.com/spf13/cobra"
 )
@@ -213,7 +214,7 @@ func contextCommand(flags *globalFlags) *cobra.Command {
 }
 
 func skillsCommand(flags *globalFlags) *cobra.Command {
-	command := &cobra.Command{Use: "skills", Short: "Inspect and explicitly update pinned marketing skills"}
+	command := &cobra.Command{Use: "skills", Short: "Inspect pinned vendored marketing skills"}
 	status := &cobra.Command{Use: "status", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := openRuntime(cmd, flags)
 		if err != nil {
@@ -224,8 +225,15 @@ func skillsCommand(flags *globalFlags) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		text := fmt.Sprintf("commit: %s\nmanifest: %s\npin valid: %t\n", value.Lock.Commit, value.Lock.ManifestSHA256, value.PinValid)
-		return emit(cmd, flags.json, value, text)
+		text := fmt.Sprintf("distribution: %s\nupstream commit: %s\nvendored manifest: %s\ninventory valid: %t\npin valid: %t\n",
+			value.Distribution, value.Lock.Commit, value.Lock.VendoredManifestSHA256, value.InventoryMatches, value.PinValid)
+		if err := emit(cmd, flags.json, value, text); err != nil {
+			return err
+		}
+		if !value.PinValid {
+			return skills.ErrInvalidPin
+		}
+		return nil
 	}}
 	list := &cobra.Command{Use: "list", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := openRuntime(cmd, flags)
@@ -233,7 +241,11 @@ func skillsCommand(flags *globalFlags) *cobra.Command {
 			return err
 		}
 		defer r.Close()
-		items, err := r.Skills.Index(cmd.Context())
+		snapshot, err := r.Skills.RequirePinned(cmd.Context())
+		if err != nil {
+			return err
+		}
+		items, err := snapshot.Index(cmd.Context())
 		if err != nil {
 			return err
 		}
@@ -247,22 +259,10 @@ func skillsCommand(flags *globalFlags) *cobra.Command {
 	}}
 	var ref, repository string
 	update := &cobra.Command{Use: "update", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, args []string) error {
-		if strings.TrimSpace(ref) == "" {
-			return errors.New("--ref is required")
-		}
-		r, err := openRuntime(cmd, flags)
-		if err != nil {
-			return err
-		}
-		defer r.Close()
-		lock, err := r.Skills.Update(cmd.Context(), repository, ref)
-		if err != nil {
-			return err
-		}
-		return emit(cmd, flags.json, lock, fmt.Sprintf("updated skills to %s (%s)\n", lock.Commit, lock.Ref))
+		return skills.ErrVendoredUpdateDisabled
 	}}
-	update.Flags().StringVar(&ref, "ref", "", "exact commit, tag, or release ref (required)")
-	update.Flags().StringVar(&repository, "repository", "https://github.com/coreyhaines31/marketingskills.git", "skills repository URL")
+	update.Flags().StringVar(&ref, "ref", "", "deprecated; runtime vendored updates are disabled")
+	update.Flags().StringVar(&repository, "repository", "", "deprecated; runtime vendored updates are disabled")
 	command.AddCommand(status, list, update)
 	return command
 }

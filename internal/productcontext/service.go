@@ -56,15 +56,21 @@ func (s *Service) Draft(ctx context.Context, productID string) (domain.ContextVe
 	if err != nil {
 		return domain.ContextVersion{}, err
 	}
-	lock, err := s.Skills.RequirePinned(ctx)
+	snapshot, err := s.Skills.RequirePinned(ctx)
 	if err != nil {
 		return domain.ContextVersion{}, fmt.Errorf("context draft blocked by skills pin: %w", err)
 	}
-	bundle, err := s.Skills.Load(ctx, "product-marketing", nil)
+	lock := snapshot.Lock()
+	bundle, err := snapshot.Load(ctx, "product-marketing", nil)
 	if err != nil {
 		return domain.ContextVersion{}, err
 	}
-	if err := s.Store.SyncSkillSnapshot(ctx, lock, []skills.Skill{bundle.Skill}); err != nil {
+	indexed, err := snapshot.Index(ctx)
+	if err != nil {
+		return domain.ContextVersion{}, err
+	}
+	metadata := snapshot.Metadata()
+	if err := s.Store.SyncSkillSnapshot(ctx, metadata, indexed); err != nil {
 		return domain.ContextVersion{}, fmt.Errorf("record product-marketing skill version: %w", err)
 	}
 	sources, sourceWarnings, err := s.collectSources(ctx, product)
@@ -94,7 +100,7 @@ func (s *Service) Draft(ctx context.Context, productID string) (domain.ContextVe
 		return domain.ContextVersion{}, err
 	}
 	result.UnsupportedOrUncertain = append(result.UnsupportedOrUncertain, sourceWarnings...)
-	version, err := s.Store.CreateContextDraft(ctx, product.ID, result.Markdown, result.EvidenceIDs, result.UnsupportedOrUncertain)
+	version, err := s.Store.CreateContextDraftWithSkillSnapshot(ctx, product.ID, result.Markdown, result.EvidenceIDs, result.UnsupportedOrUncertain, metadata.ID)
 	if err != nil {
 		return domain.ContextVersion{}, err
 	}

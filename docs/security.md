@@ -14,7 +14,7 @@ Treat all of these as untrusted input:
 - website/docs/pricing/changelog responses;
 - local repository documents;
 - approved context text;
-- upstream skill instructions/examples;
+- vendored upstream skill instructions/examples;
 - model output and repaired model output.
 
 Prompts delimit these sources as data and explicitly deny tool/state authority. The model client has no tool API. Go code owns all state transitions and external calls.
@@ -38,10 +38,16 @@ Use separate narrowly scoped tokens. Rotate a token if evidence or output indica
 - Local source collection reads only an allowlist of public documentation filenames.
 - Local source symlinks are canonicalized and must remain inside the configured repository.
 - Agent Skill reference paths reject absolute paths, `..`, unsupported directories, oversized files, and escaping symlinks.
-- Upstream tracked symlinks are accepted only when they resolve to regular files inside the pinned skills repository.
+- Vendored skill symlinks, if present, are accepted only when they resolve to regular files inside the vendored skills root.
 - Runtime product evidence/drafts/reports/approvals/state are ignored by default Git rules because they may be sensitive.
 
 SQLite is not encrypted at rest. Rely on host disk encryption and account permissions, or add a reviewed encrypted-store deployment before handling data that requires application-level encryption.
+
+## Vendored guidance integrity
+
+Marketing OS does not fetch or update marketing guidance during normal operation. The lock preserves the source repository, exact upstream commit/version, and full-upstream manifest for provenance, then independently pins the five-skill runtime inventory and vendored-tree manifest. Runtime verification fails closed if the vendored bytes or inventory drift.
+
+The upstream MIT license remains in `third_party/marketingskills/LICENSE`; `third_party/marketingskills/UPSTREAM.yaml` records provenance and local modification status; `THIRD_PARTY_NOTICES.md` provides repository-level attribution. The `skills update` command always refuses, so a model run cannot cause or benefit from an implicit guidance update.
 
 ## Network safety
 

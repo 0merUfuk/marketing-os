@@ -49,11 +49,18 @@ marketing-os context versions <product>
 ```sh
 marketing-os skills status
 marketing-os skills list
-marketing-os skills update --ref <commit-or-tag> \
-  [--repository https://github.com/coreyhaines31/marketingskills.git]
+marketing-os skills update
 ```
 
-`status` verifies both exact Git commit and repository manifest. `list` parses and validates all skill frontmatter. `update` is explicit: it refuses a dirty skills repository, fetches the requested ref, checks it out detached, computes the manifest, and atomically writes `skills.lock.yaml`. Review the submodule diff and lock file before accepting an update.
+`status` verifies the vendored runtime manifest and exact selected-skill inventory against `skills.lock.yaml`. Its output identifies the `vendored` distribution, upstream commit, actual vendored manifest, inventory validity, and overall `pin_valid` result. `list` parses and validates the five vendored skill frontmatter files.
+
+`update` is a safety sentinel, not a network updater. It always exits non-zero with:
+
+```text
+runtime skills update is disabled for vendored distribution; follow the reviewed offline maintainer procedure in docs/skills.md
+```
+
+Normal users never need Git or submodule setup. Maintainers use the [offline reviewed procedure](skills.md#maintainer-update-procedure).
 
 ## Workflows
 

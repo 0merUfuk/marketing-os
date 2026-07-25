@@ -4,6 +4,9 @@
 /marketing-os
 /config.yaml
 
+# Local/private agent ecosystem state
+/.claude/
+
 # Product runtime artifacts may contain private evidence or drafts
 /products/*/evidence/
 /products/*/research/

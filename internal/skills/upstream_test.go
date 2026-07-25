@@ -2,20 +2,26 @@ package skills
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 	"testing"
 )
 
-func TestPinnedUpstreamContainsRequiredWorkflowSkills(t *testing.T) {
-	repo := filepath.Clean(filepath.Join("..", "..", ".skills", "marketingskills"))
-	if _, err := os.Stat(filepath.Join(repo, "skills")); os.IsNotExist(err) {
-		t.Skip("marketingskills submodule is not initialized")
-	}
+func TestVendoredDistributionContainsExactlyRequiredWorkflowSkills(t *testing.T) {
+	repo := filepath.Clean(filepath.Join("..", "..", "third_party", "marketingskills"))
 	loader := NewLoader(repo, filepath.Join("..", "..", "skills.lock.yaml"))
+	status, err := loader.Status(context.Background())
+	if err != nil {
+		t.Fatalf("status vendored skills: %v", err)
+	}
+	if !status.PinValid || !status.InventoryMatches || !status.VendoredManifestMatches {
+		t.Fatalf("vendored status = %+v", status)
+	}
 	indexed, err := loader.Index(context.Background())
 	if err != nil {
-		t.Fatalf("index pinned upstream: %v", err)
+		t.Fatalf("index vendored skills: %v", err)
+	}
+	if len(indexed) != 5 {
+		t.Fatalf("vendored skill count = %d, want 5", len(indexed))
 	}
 	versions := map[string]string{}
 	for _, skill := range indexed {

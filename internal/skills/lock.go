@@ -2,54 +2,84 @@ package skills
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"sort"
+	"regexp"
 	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	VendoredDistribution = "vendored"
+	maxLockBytes         = 64 * 1024
+	maxManifestFileBytes = 8 * 1024 * 1024
+	maxManifestBytes     = 64 * 1024 * 1024
+)
+
+var (
+	immutableCommitPattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
+	sha256Pattern          = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	semverPattern          = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$`)
+
+	ErrVendoredUpdateDisabled = errors.New("runtime skills update is disabled for vendored distribution; follow the reviewed offline maintainer procedure in docs/skills.md")
+	ErrInvalidPin             = errors.New("vendored marketing skills do not match the lock")
+)
+
+type SelectedSkill struct {
+	Name    string `yaml:"name" json:"name"`
+	Version string `yaml:"version" json:"version"`
+}
+
 type Lock struct {
-	Repository        string    `yaml:"repository" json:"repository"`
-	Ref               string    `yaml:"ref" json:"ref"`
-	Commit            string    `yaml:"commit" json:"commit"`
-	RepositoryVersion string    `yaml:"repository_version" json:"repository_version"`
-	ManifestSHA256    string    `yaml:"manifest_sha256" json:"manifest_sha256"`
-	UpdatedAt         time.Time `yaml:"updated_at" json:"updated_at"`
+	Distribution           string          `yaml:"distribution" json:"distribution"`
+	Repository             string          `yaml:"repository" json:"repository"`
+	Ref                    string          `yaml:"ref" json:"ref"`
+	Commit                 string          `yaml:"commit" json:"commit"`
+	RepositoryVersion      string          `yaml:"repository_version" json:"repository_version"`
+	SelectedSkills         []SelectedSkill `yaml:"selected_skills" json:"selected_skills"`
+	UpstreamManifestSHA256 string          `yaml:"upstream_manifest_sha256" json:"upstream_manifest_sha256"`
+	VendoredManifestSHA256 string          `yaml:"vendored_manifest_sha256" json:"vendored_manifest_sha256"`
+	UpdatedAt              time.Time       `yaml:"updated_at" json:"updated_at"`
 }
 
 type Status struct {
-	Lock            Lock   `json:"lock"`
-	ActualCommit    string `json:"actual_commit,omitempty"`
-	ActualManifest  string `json:"actual_manifest"`
-	CommitMatches   bool   `json:"commit_matches"`
-	ManifestMatches bool   `json:"manifest_matches"`
-	PinValid        bool   `json:"pin_valid"`
+	Lock                    Lock            `json:"lock"`
+	Distribution            string          `json:"distribution"`
+	DistributionValid       bool            `json:"distribution_valid"`
+	ActualInventory         []SelectedSkill `json:"actual_inventory"`
+	InventoryMatches        bool            `json:"inventory_matches"`
+	ActualManifest          string          `json:"actual_manifest"`
+	ManifestMatches         bool            `json:"manifest_matches"`
+	VendoredManifestMatches bool            `json:"vendored_manifest_matches"`
+	PinValid                bool            `json:"pin_valid"`
 }
 
 func ReadLock(path string) (Lock, error) {
-	f, err := os.Open(path)
+	data, err := readBoundedFile(path, maxLockBytes)
 	if err != nil {
 		return Lock{}, fmt.Errorf("open skills lock: %w", err)
 	}
-	defer f.Close()
 	var lock Lock
-	decoder := yaml.NewDecoder(io.LimitReader(f, 64*1024))
+	decoder := yaml.NewDecoder(strings.NewReader(string(data)))
 	decoder.KnownFields(true)
 	if err := decoder.Decode(&lock); err != nil {
 		return Lock{}, fmt.Errorf("decode skills lock: %w", err)
 	}
-	if lock.Repository == "" || lock.Ref == "" || lock.Commit == "" || lock.ManifestSHA256 == "" {
-		return Lock{}, errors.New("skills lock requires repository, ref, commit, and manifest_sha256")
+	var extra any
+	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return Lock{}, errors.New("decode skills lock: multiple YAML documents are not allowed")
+		}
+		return Lock{}, fmt.Errorf("decode skills lock trailing document: %w", err)
+	}
+	if err := validateLock(lock); err != nil {
+		return Lock{}, err
 	}
 	return lock, nil
 }
@@ -57,6 +87,9 @@ func ReadLock(path string) (Lock, error) {
 func WriteLock(path string, lock Lock) error {
 	if lock.UpdatedAt.IsZero() {
 		lock.UpdatedAt = time.Now().UTC()
+	}
+	if err := validateLock(lock); err != nil {
+		return err
 	}
 	data, err := yaml.Marshal(lock)
 	if err != nil {
@@ -90,130 +123,64 @@ func WriteLock(path string, lock Lock) error {
 }
 
 func (l *Loader) Status(ctx context.Context) (Status, error) {
-	lock, err := ReadLock(l.LockPath)
-	if err != nil {
-		return Status{}, err
-	}
-	manifest, err := l.ComputeManifest(ctx)
-	if err != nil {
-		return Status{}, err
-	}
-	actualCommit, _ := gitOutput(ctx, l.RepositoryPath, "rev-parse", "HEAD")
-	status := Status{
-		Lock: lock, ActualCommit: actualCommit, ActualManifest: manifest,
-		ManifestMatches: manifest == lock.ManifestSHA256,
-	}
-	status.CommitMatches = actualCommit == "" || actualCommit == lock.Commit
-	status.PinValid = status.CommitMatches && status.ManifestMatches
-	return status, nil
+	_, status, err := l.inspect(ctx)
+	return status, err
 }
 
-func (l *Loader) RequirePinned(ctx context.Context) (Lock, error) {
-	status, err := l.Status(ctx)
+func (l *Loader) inspect(ctx context.Context) (*repositorySnapshot, Status, error) {
+	lock, err := ReadLock(l.LockPath)
 	if err != nil {
-		return Lock{}, err
+		return nil, Status{}, err
+	}
+	snapshot, err := l.captureRepository(ctx)
+	if err != nil {
+		return nil, Status{}, err
+	}
+	indexed, err := snapshot.index(ctx)
+	if err != nil {
+		return nil, Status{}, fmt.Errorf("index vendored skills: %w", err)
+	}
+	actualInventory := make([]SelectedSkill, 0, len(indexed))
+	for _, skill := range indexed {
+		actualInventory = append(actualInventory, SelectedSkill{Name: skill.Name, Version: skill.Version})
+	}
+	manifestMatches := snapshot.manifest == lock.VendoredManifestSHA256
+	status := Status{
+		Lock: lock, Distribution: lock.Distribution,
+		DistributionValid:       lock.Distribution == VendoredDistribution,
+		ActualInventory:         actualInventory,
+		InventoryMatches:        selectedSkillsEqual(actualInventory, lock.SelectedSkills),
+		ActualManifest:          snapshot.manifest,
+		ManifestMatches:         manifestMatches,
+		VendoredManifestMatches: manifestMatches,
+	}
+	status.PinValid = status.DistributionValid && status.InventoryMatches && status.VendoredManifestMatches
+	return snapshot, status, nil
+}
+
+func (l *Loader) RequirePinned(ctx context.Context) (*VerifiedSnapshot, error) {
+	repository, status, err := l.inspect(ctx)
+	if err != nil {
+		return nil, err
 	}
 	if !status.PinValid {
-		return Lock{}, fmt.Errorf("marketing skills repository does not match lock (commit_match=%t manifest_match=%t)", status.CommitMatches, status.ManifestMatches)
+		return nil, fmt.Errorf("%w (distribution_valid=%t inventory_match=%t vendored_manifest_match=%t)",
+			ErrInvalidPin, status.DistributionValid, status.InventoryMatches, status.VendoredManifestMatches)
 	}
-	return status.Lock, nil
+	return &VerifiedSnapshot{
+		repository: repository,
+		lock:       cloneLock(status.Lock),
+		status:     cloneStatus(status),
+		metadata:   NewSnapshotMetadata(status.Lock, status.ActualManifest),
+	}, nil
 }
 
 func (l *Loader) ComputeManifest(ctx context.Context) (string, error) {
-	root, err := filepath.Abs(l.RepositoryPath)
+	snapshot, err := l.captureRepository(ctx)
 	if err != nil {
 		return "", err
 	}
-	root, err = filepath.EvalSymlinks(root)
-	if err != nil {
-		return "", fmt.Errorf("resolve skills repository root: %w", err)
-	}
-	lockAbs, _ := filepath.Abs(l.LockPath)
-	if lockParent, resolveErr := filepath.EvalSymlinks(filepath.Dir(lockAbs)); resolveErr == nil {
-		lockAbs = filepath.Join(lockParent, filepath.Base(lockAbs))
-	}
-	var paths []string
-	err = filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		rel, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
-		if rel == ".git" || strings.HasPrefix(rel, ".git"+string(filepath.Separator)) {
-			if entry.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if entry.IsDir() {
-			return nil
-		}
-		pathAbs, _ := filepath.Abs(path)
-		if pathAbs == lockAbs {
-			return nil
-		}
-		if entry.Type()&os.ModeSymlink != 0 {
-			resolved, err := filepath.EvalSymlinks(path)
-			if err != nil {
-				return fmt.Errorf("resolve repository symlink %s: %w", rel, err)
-			}
-			inside, err := pathContainedBy(root, resolved)
-			if err != nil || !inside {
-				return fmt.Errorf("repository symlink %s escapes the pinned repository", rel)
-			}
-			info, err := os.Stat(resolved)
-			if err != nil || !info.Mode().IsRegular() {
-				return fmt.Errorf("repository symlink %s must resolve to a regular file", rel)
-			}
-		}
-		paths = append(paths, path)
-		return nil
-	})
-	if err != nil {
-		return "", fmt.Errorf("walk skills repository: %w", err)
-	}
-	sort.Strings(paths)
-	hash := sha256.New()
-	for _, path := range paths {
-		rel, _ := filepath.Rel(root, path)
-		io.WriteString(hash, filepath.ToSlash(rel))
-		hash.Write([]byte{0})
-		contentPath := path
-		info, err := os.Lstat(path)
-		if err != nil {
-			return "", err
-		}
-		if info.Mode()&os.ModeSymlink != 0 {
-			target, err := os.Readlink(path)
-			if err != nil {
-				return "", err
-			}
-			io.WriteString(hash, "symlink")
-			hash.Write([]byte{0})
-			io.WriteString(hash, filepath.ToSlash(target))
-			hash.Write([]byte{0})
-			contentPath, err = filepath.EvalSymlinks(path)
-			if err != nil {
-				return "", err
-			}
-		}
-		f, err := os.Open(contentPath)
-		if err != nil {
-			return "", err
-		}
-		if _, err := io.Copy(hash, f); err != nil {
-			f.Close()
-			return "", err
-		}
-		f.Close()
-		hash.Write([]byte{0})
-	}
-	return hex.EncodeToString(hash.Sum(nil)), nil
+	return snapshot.manifest, nil
 }
 
 func pathContainedBy(root, candidate string) (bool, error) {
@@ -224,61 +191,63 @@ func pathContainedBy(root, candidate string) (bool, error) {
 	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)), nil
 }
 
-func (l *Loader) Update(ctx context.Context, repositoryURL, ref string) (Lock, error) {
-	if strings.TrimSpace(repositoryURL) == "" || strings.TrimSpace(ref) == "" {
-		return Lock{}, errors.New("repository URL and ref are required")
-	}
-	if dirty, err := gitOutput(ctx, l.RepositoryPath, "status", "--porcelain"); err != nil {
-		return Lock{}, fmt.Errorf("inspect skills repository: %w", err)
-	} else if dirty != "" {
-		return Lock{}, errors.New("skills repository has local changes; refusing update")
-	}
-	cmd := exec.CommandContext(ctx, "git", "-C", l.RepositoryPath, "fetch", "--depth=1", repositoryURL, ref)
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return Lock{}, fmt.Errorf("fetch skills ref: %w: %s", err, strings.TrimSpace(string(output)))
-	}
-	commit, err := gitOutput(ctx, l.RepositoryPath, "rev-parse", "FETCH_HEAD^{commit}")
-	if err != nil {
-		return Lock{}, fmt.Errorf("resolve fetched skills commit: %w", err)
-	}
-	cmd = exec.CommandContext(ctx, "git", "-C", l.RepositoryPath, "checkout", "--detach", commit)
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return Lock{}, fmt.Errorf("checkout skills commit: %w: %s", err, strings.TrimSpace(string(output)))
-	}
-	manifest, err := l.ComputeManifest(ctx)
-	if err != nil {
-		return Lock{}, err
-	}
-	lock := Lock{
-		Repository: repositoryURL, Ref: ref, Commit: commit,
-		RepositoryVersion: repositoryVersion(l.RepositoryPath),
-		ManifestSHA256:    manifest, UpdatedAt: time.Now().UTC(),
-	}
-	if err := WriteLock(l.LockPath, lock); err != nil {
-		return Lock{}, err
-	}
-	return lock, nil
+func (l *Loader) Update(context.Context, string, string) (Lock, error) {
+	return Lock{}, ErrVendoredUpdateDisabled
 }
 
-func repositoryVersion(root string) string {
-	data, err := os.ReadFile(filepath.Join(root, ".claude-plugin", "plugin.json"))
-	if err != nil {
-		return ""
+func validateLock(lock Lock) error {
+	if lock.Distribution != VendoredDistribution {
+		return fmt.Errorf("skills lock distribution must be %q", VendoredDistribution)
 	}
-	var manifest struct {
-		Version string `json:"version"`
+	repository, err := url.Parse(lock.Repository)
+	if err != nil || repository.Scheme != "https" || repository.Host == "" || repository.User != nil || repository.RawQuery != "" || repository.Fragment != "" {
+		return errors.New("skills lock repository must be an absolute HTTPS URL without credentials, query, or fragment")
 	}
-	if json.Unmarshal(data, &manifest) != nil {
-		return ""
+	if !immutableCommitPattern.MatchString(lock.Ref) || !immutableCommitPattern.MatchString(lock.Commit) || lock.Ref != lock.Commit {
+		return errors.New("skills lock ref and commit must be the same full lowercase 40-character commit SHA")
 	}
-	return manifest.Version
+	if !semverPattern.MatchString(lock.RepositoryVersion) {
+		return errors.New("skills lock repository_version must be a semantic version")
+	}
+	if err := validateSelectedSkills(lock.SelectedSkills); err != nil {
+		return err
+	}
+	if !sha256Pattern.MatchString(lock.UpstreamManifestSHA256) {
+		return errors.New("skills lock upstream_manifest_sha256 must be a lowercase 64-character SHA-256")
+	}
+	if !sha256Pattern.MatchString(lock.VendoredManifestSHA256) {
+		return errors.New("skills lock vendored_manifest_sha256 must be a lowercase 64-character SHA-256")
+	}
+	if lock.UpdatedAt.IsZero() {
+		return errors.New("skills lock updated_at is required")
+	}
+	return nil
 }
 
-func gitOutput(ctx context.Context, repository string, args ...string) (string, error) {
-	all := append([]string{"-C", repository}, args...)
-	output, err := exec.CommandContext(ctx, "git", all...).CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("git %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(string(output)))
+func validateSelectedSkills(selected []SelectedSkill) error {
+	expectedNames := []string{"copywriting", "emails", "launch", "product-marketing", "social"}
+	if len(selected) != len(expectedNames) {
+		return fmt.Errorf("skills lock selected_skills must contain exactly %d canonical skills", len(expectedNames))
 	}
-	return strings.TrimSpace(string(output)), nil
+	for i, expectedName := range expectedNames {
+		if selected[i].Name != expectedName {
+			return fmt.Errorf("skills lock selected_skills must be sorted and contain %q at index %d", expectedName, i)
+		}
+		if !semverPattern.MatchString(selected[i].Version) {
+			return fmt.Errorf("skills lock selected skill %q must have a semantic version", selected[i].Name)
+		}
+	}
+	return nil
+}
+
+func selectedSkillsEqual(actual, expected []SelectedSkill) bool {
+	if len(actual) != len(expected) {
+		return false
+	}
+	for i := range expected {
+		if actual[i] != expected[i] {
+			return false
+		}
+	}
+	return true
 }
