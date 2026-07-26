@@ -23,7 +23,7 @@ No autonomous publishing, email sending, ad spending, purchase, approval, custom
 
 ## Requirements
 
-- Go 1.25+
+- Go 1.25.6 or later
 - SQLite is embedded through a pure-Go driver; no local SQLite package is required
 - A structured-output-capable OpenAI-compatible model endpoint
 - A GitHub token for real workflow runs (public source reads can be anonymous)
