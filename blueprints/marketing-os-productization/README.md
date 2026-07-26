@@ -17,7 +17,7 @@ When sources conflict, use this order:
 1. [`DECISIONS.md`](DECISIONS.md) for ratified product decisions and owner-only questions.
 2. Current code and committed repository docs for implemented behavior.
 3. This blueprint for the approved implementation sequence and target seams.
-4. Handoff material under `tasks/` for execution context; those files are local orchestration artifacts, not product requirements.
+4. Local orchestration handoffs for execution context; those files are not product requirements and are not part of the public runtime contract.
 
 Important current evidence:
 
@@ -94,7 +94,7 @@ Stop and request owner approval before:
 - choosing pricing, cloud, legal-notice strategy beyond Q-LEGAL-1's default, or hosted-model policy;
 - changing the Marketing OS name, brand, or module path;
 - adding publishing, sending, spending, purchasing, or automatic approval;
-- deleting ambiguous local artifacts or committing private config, generated media, credentials, or local-only symlinks.
+- deleting ambiguous local artifacts or committing private config, generated assets, credentials, or local-only symlinks.
 
 ## Blueprint completion gate
 

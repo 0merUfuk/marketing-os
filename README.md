@@ -128,3 +128,7 @@ The kill switch is stored in SQLite and survives process restarts. It prevents s
 The runtime contains only the five upstream skills Marketing OS uses: `product-marketing`, `launch`, `copywriting`, `social`, and `emails`. They are vendored under `third_party/marketingskills`; users do not need Git or a submodule checkout. Provenance and local-modification metadata are recorded in `third_party/marketingskills/UPSTREAM.yaml`, and attribution is preserved in `THIRD_PARTY_NOTICES.md` plus the upstream `LICENSE`.
 
 The lock keeps the historical full-upstream manifest for provenance and a separate vendored manifest for runtime integrity. Runtime updates are intentionally disabled; maintainers must follow the offline, review-first procedure in [Pinned Agent Skills](docs/skills.md#maintainer-update-procedure).
+
+## License
+
+Marketing OS is licensed under the [MIT License](LICENSE). Vendored third-party skill attribution is documented in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
