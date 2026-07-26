@@ -27,7 +27,7 @@ inventory:
   - path: skills/copywriting/references/natural-transitions.md
     sha256: 4ff23f8943af2f65b072f26f1c53ce55f19cc26d7be211c11cae8e34b43e859f
   - path: skills/emails/SKILL.md
-    sha256: 1fbd54df4c59f48408057e7db0dfb1a53c033e6a4ca5cd1927a47c51ec28d8f1
+    sha256: b555fc77ee8087658f58445ddd2892ce98c430d09fa4211f86e52d0ca25677ac
   - path: skills/emails/evals/evals.json
     sha256: 79cd94598ce73482055b94a1231f7c10003fc3e367da5a46ab2c529f061a48fe
   - path: skills/emails/references/copy-guidelines.md
@@ -37,7 +37,7 @@ inventory:
   - path: skills/emails/references/sequence-templates.md
     sha256: d47b12e263ad52b72ab741c490bbc98d8bf8034d61faccc50b7dbb2650a9fba0
   - path: skills/launch/SKILL.md
-    sha256: 6d8bbd61449c48c458b20457c0b698386fe808e7063a7baadc197fc179bd94bb
+    sha256: c0960f47c909aeacad7cfddef10219f990f09067af50aa35cd7d85f5af73951f
   - path: skills/launch/evals/evals.json
     sha256: 9909f7059a4082a095a69aaf549d5e519e333ddc8f086c50cdd5b375e191797d
   - path: skills/product-marketing/SKILL.md
@@ -65,5 +65,20 @@ inventory:
   - path: skills/social/references/short-form-video.md
     sha256: 38e7de4049f39d116b815a8d07f5e45777501e9f506e3a5fe005c5d204d32ee7
 local_modifications:
-  upstream_content: none
-  statement: No upstream content modifications; layout and provenance files were added by Marketing OS.
+  upstream_content: link-target-only
+  statement: Two upstream Markdown files have link-target-only portability repairs; prose, authorship, and licensing are unchanged.
+  files:
+    - path: skills/emails/SKILL.md
+      date: "2026-07-26"
+      modification_type: link-target-only
+      reason: Replace broken links to upstream files outside the selected vendored scope with immutable commit-pinned destinations.
+      summary: Replaced seven relative tools links with GitHub blob URLs pinned to the recorded upstream commit; no upstream prose changed.
+      original_upstream_sha256: 1fbd54df4c59f48408057e7db0dfb1a53c033e6a4ca5cd1927a47c51ec28d8f1
+      resulting_vendored_sha256: b555fc77ee8087658f58445ddd2892ce98c430d09fa4211f86e52d0ca25677ac
+    - path: skills/launch/SKILL.md
+      date: "2026-07-26"
+      modification_type: link-target-only
+      reason: Replace a broken link to an upstream file outside the selected vendored scope with an immutable commit-pinned destination.
+      summary: Replaced one relative tools link with a GitHub blob URL pinned to the recorded upstream commit; no upstream prose changed.
+      original_upstream_sha256: 6d8bbd61449c48c458b20457c0b698386fe808e7063a7baadc197fc179bd94bb
+      resulting_vendored_sha256: c0960f47c909aeacad7cfddef10219f990f09067af50aa35cd7d85f5af73951f

@@ -15,5 +15,5 @@ selected_skills:
   - name: social
     version: 2.2.0
 upstream_manifest_sha256: dbec7d7c123f10e15a19130abe6efe469db8df1bac454b70919ccb92e2286047
-vendored_manifest_sha256: ed58924db7952e1ddf09c4a0d702e4f3d399992c008268ccb06e296e15b14b88
-updated_at: 2026-07-18T16:38:41.267449Z
+vendored_manifest_sha256: aecfeca5f82c9004de775c220bbd1a7976e765c171bf49fe9c0e2eaedc4f551a
+updated_at: 2026-07-26T01:09:18Z
