@@ -7,25 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- CONTRIBUTING.md guide for community contributors.
-- Makefile with standard build, test, vet, and smoke targets.
-- First-class upstream provenance and MIT attribution through `third_party/marketingskills/UPSTREAM.yaml` and `THIRD_PARTY_NOTICES.md`.
-
-### Changed
-
-- Replaced the normal-user marketing-skills submodule with exactly five vendored runtime skills: `product-marketing`, `launch`, `copywriting`, `social`, and `emails`.
-- Extended the skills lock with a deterministic selected-skill inventory and separate vendored-runtime manifest while preserving the original full-upstream provenance manifest.
-- Made runtime `skills update` fail closed and direct maintainers to the offline reviewed update procedure.
-
-## [0.1.0] - 2026-07-20
+## [0.1.0] - 2026-07-28
 
 ### Added
 
 - Local-first, evidence-grounded marketing workflow engine in Go.
 - Modular monolith architecture with pure-Go SQLite (`modernc.org/sqlite`).
-- Pinned Agent Skills submodule (`marketingskills` @ `6726476`, v2.8.12) with SHA-256 manifest verification.
+- Five vendored runtime skills (`product-marketing`, `launch`, `copywriting`, `social`, `emails`) from `coreyhaines31/marketingskills` with SHA-256 manifest verification.
 - OpenAI-compatible LLM abstraction with token/cost controls, secret redaction, strict JSON output, and bounded repair retries.
 - Release-to-marketing workflow: GitHub release ingestion, immutable evidence, structured generation, evidence citation validation, forbidden-term enforcement, and `no_action` for low-marketability releases.
 - Idempotent GitHub approval issue creation with hidden marker reconciliation and ambiguous-write recovery.
@@ -33,10 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Durable SQLite state: workflow runs, claims, leases, fencing tokens, dedupe keys, cursors, audit events, and skill snapshots.
 - Cron scheduler with dynamic workflow reconciliation, per-run timeouts, retry logic, and persistent global kill switch.
 - Cobra CLI with JSON output, product/context/workflow/skills/scheduler/runs/approvals commands.
+- CONTRIBUTING.md guide for community contributors.
+- Makefile with standard build, test, vet, and smoke targets.
+- First-class upstream provenance and MIT attribution through `third_party/marketingskills/UPSTREAM.yaml` and `THIRD_PARTY_NOTICES.md`.
+- Minimal secret-free CI workflow.
 - Comprehensive documentation: architecture, database, configuration, CLI, skills, security, workflow extension, troubleshooting, implementation plan, and absolute beginner's guide.
 - MIT license.
-- Reusable GitHub Actions workflow in `0merUfuk/.github`.
-- Hermes onboarding skill for one-command project registration.
 
 ### Security
 
@@ -46,3 +36,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Symlink containment: safely resolved repository-contained symlinks allowed; escaping and broken links rejected.
 - Bounded skill loading with reference-aware traversal prevention.
 - Input-token preflight check prevents unnecessary HTTP requests.
+- Runtime `skills update` fails closed; maintainers must follow the offline reviewed update procedure.
