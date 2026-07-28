@@ -23,8 +23,12 @@ listed in sorted path order:
 - `third_party/marketingskills/skills/product-marketing/`
 - `third_party/marketingskills/skills/social/`
 
-Local modification status: none. The 23 files inside the selected upstream
-skill directories and the upstream `LICENSE` were copied byte-for-byte.
-Marketing OS added only its repository layout and provenance files, including
-this notice and `UPSTREAM.yaml`; it did not modify or claim authorship of the
-upstream content.
+Of the 23 files inside the selected upstream skill directories, 21 remain
+byte-identical to the recorded upstream commit. Marketing OS made
+link-target-only modifications to `skills/emails/SKILL.md` and
+`skills/launch/SKILL.md`: eight broken relative links to upstream files outside
+the selected vendored scope now use immutable GitHub blob URLs pinned to that
+commit. The upstream `LICENSE` remains byte-for-byte identical. Upstream
+authorship and MIT licensing are preserved; Marketing OS does not claim
+authorship of the upstream content. Exact original and resulting hashes are
+recorded in `UPSTREAM.yaml`.
